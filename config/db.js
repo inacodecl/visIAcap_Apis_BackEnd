@@ -4,13 +4,14 @@ const mysql = require('mysql2/promise');
 // usuario de prueba 
 const pool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'visiacap_user', 
+    user: process.env.DB_USER || 'visiacap_user',
     password: process.env.DB_PASSWORD || 'VisIacap123#',
     database: process.env.DB_NAME || 'visiacap',
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
-    timezone: '+00:00'
+    timezone: 'Z', // UTC para evitar problemas de fechas
+    dateStrings: true // Recuperar fechas como strings para evitar conversiones automáticas no deseadas
 });
 
 module.exports = pool;
