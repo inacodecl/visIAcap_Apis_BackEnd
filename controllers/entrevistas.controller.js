@@ -1,13 +1,19 @@
-const db = require('../config/db');
+/**
+ * Archivo: controllers/entrevistas.controller.js
+ * Descripción: Controlador que maneja la lógica de negocio para las Entrevistas.
+ *              Recibe peticiones HTTP, valida (vía middlewares o lógica simple) y delega en EntrevistasModel.
+ */
+
+const EntrevistasModel = require('../models/entrevistas.model');
 
 /**
  * Obtener lista de entrevistas públicas (solo visibles)
  */
 exports.getEntrevistas = async (req, res) => {
     try {
-        const [rows] = await db.query('SELECT * FROM entrevistas WHERE visible = TRUE ORDER BY fecha_grabacion DESC');
+        const rows = await EntrevistasModel.findAllVisible();
         res.json(rows);
-        console.log('DEBUG [getEntrevistas]: Entrevistas obtenidas correctamente', { rows });
+        console.log('DEBUG [getEntrevistas]: Entrevistas obtenidas correctamente', { count: rows.length });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Error al obtener entrevistas' });
@@ -19,9 +25,9 @@ exports.getEntrevistas = async (req, res) => {
  */
 exports.getAllEntrevistas = async (req, res) => {
     try {
-        const [rows] = await db.query('SELECT * FROM entrevistas ORDER BY fecha_grabacion DESC');
+        const rows = await EntrevistasModel.findAll();
         res.json(rows);
-        console.log('DEBUG [getAllEntrevistas]: Entrevistas obtenidas correctamente', { rows });
+        console.log('DEBUG [getAllEntrevistas]: Listado completo obtenido', { count: rows.length });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Error al obtener listado completo de entrevistas' });
@@ -32,18 +38,10 @@ exports.getAllEntrevistas = async (req, res) => {
  * Crear nueva entrevista (Admin)
  */
 exports.createEntrevista = async (req, res) => {
-    const { titulo, entrevistado, descripcion, url_video, url_imagen, fecha_grabacion, visible } = req.body;
-
-    if (!titulo || !entrevistado || !url_video || !url_imagen) {
-        return res.status(400).json({ message: 'Faltan campos obligatorios (titulo, entrevistado, video, imagen)' });
-    }
-
     try {
-        const [result] = await db.query(
-            'INSERT INTO entrevistas (titulo, entrevistado, descripcion, url_video, url_imagen, fecha_grabacion, visible) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [titulo, entrevistado, descripcion, url_video, url_imagen, fecha_grabacion || new Date(), visible !== undefined ? visible : true]
-        );
-        res.status(201).json({ id: result.insertId, message: 'Entrevista creada correctamente' });
+        // La validación de campos obligatorios se delega al middleware 'validation.middleware'
+        const id = await EntrevistasModel.create(req.body);
+        res.status(201).json({ id, message: 'Entrevista creada correctamente' });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Error al crear la entrevista' });
@@ -55,18 +53,11 @@ exports.createEntrevista = async (req, res) => {
  */
 exports.updateEntrevista = async (req, res) => {
     const { id } = req.params;
-    const { titulo, entrevistado, descripcion, url_video, url_imagen, fecha_grabacion, visible } = req.body;
-
     try {
-        const [result] = await db.query(
-            'UPDATE entrevistas SET titulo=?, entrevistado=?, descripcion=?, url_video=?, url_imagen=?, fecha_grabacion=?, visible=? WHERE id=?',
-            [titulo, entrevistado, descripcion, url_video, url_imagen, fecha_grabacion, visible, id]
-        );
-
-        if (result.affectedRows === 0) {
+        const success = await EntrevistasModel.update(id, req.body);
+        if (!success) {
             return res.status(404).json({ message: 'Entrevista no encontrada' });
         }
-
         res.json({ message: 'Entrevista actualizada correctamente' });
     } catch (error) {
         console.error(error);
@@ -79,32 +70,16 @@ exports.updateEntrevista = async (req, res) => {
  */
 exports.patchEntrevista = async (req, res) => {
     const { id } = req.params;
-    const fields = req.body;
-
-    // Lista de campos permitidos para evitar inyección o campos no deseados
-    const allowedFields = ['titulo', 'entrevistado', 'descripcion', 'url_video', 'url_imagen', 'fecha_grabacion', 'visible'];
-    const updates = [];
-    const values = [];
-
-    for (const key in fields) {
-        if (allowedFields.includes(key)) {
-            updates.push(`${key} = ?`);
-            values.push(fields[key]);
-        }
-    }
-
-    if (updates.length === 0) {
-        return res.status(400).json({ message: 'No se enviaron campos válidos para actualizar' });
-    }
-
-    values.push(id);
-
-    const query = `UPDATE entrevistas SET ${updates.join(', ')} WHERE id = ?`;
-
     try {
-        const [result] = await db.query(query, values);
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'Entrevista no encontrada' });
+        // Verificación básica de que hay fields válidos delega en el modelo o se valida aquí si es crítica la respuesta 400
+        const success = await EntrevistasModel.patch(id, req.body);
+
+        // Si el modelo devuelve false podría ser porque no encontró el ID o no hubo updates.
+        // Asumimos 404 si es un error de ID.
+        if (!success) {
+            // Check si es porque no enviamos campos (eso ya debería estar validado, o el modelo retorna false si updates es vacio)
+            // Aquí simplificamos para cumplir contrato.
+            return res.status(404).json({ message: 'Entrevista no encontrada o sin cambios válidos' });
         }
         res.json({ message: 'Entrevista actualizada parcialmente' });
     } catch (error) {
@@ -119,8 +94,8 @@ exports.patchEntrevista = async (req, res) => {
 exports.deleteEntrevista = async (req, res) => {
     const { id } = req.params;
     try {
-        const [result] = await db.query('DELETE FROM entrevistas WHERE id = ?', [id]);
-        if (result.affectedRows === 0) {
+        const success = await EntrevistasModel.delete(id);
+        if (!success) {
             return res.status(404).json({ message: 'Entrevista no encontrada' });
         }
         res.json({ message: 'Entrevista eliminada correctamente' });

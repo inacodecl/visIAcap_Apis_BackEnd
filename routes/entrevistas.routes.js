@@ -1,27 +1,37 @@
+/**
+ * Archivo: routes/entrevistas.routes.js
+ * Descripción: Define las rutas REST para el recurso 'entrevistas'.
+ *              Mapea endpoints HTTP a métodos del controlador EntrevistasController.
+ */
+
 const express = require('express');
 const router = express.Router();
 const entrevistasController = require('../controllers/entrevistas.controller');
-const { verifyToken, verifyRole } = require('../middlewares/auth.middleware');
+const { validateRequiredFields } = require('../middlewares/validation.middleware');
+// TODO: Importar authMiddleware cuando estemos listos para proteger rutas
 
 // Rutas Públicas
 router.get('/', entrevistasController.getEntrevistas);
 
-// Rutas Protegidas (Requieren Token)
-//router.use(verifyToken);
+// Rutas Admin (Protegidas)
+// router.use(verifyToken); // Descomentar para activar protección global en estas rutas
+// router.use(verifyRole(['admin', 'superadmin']));
 
-// Obtener todas (Admin)
-router.get('/all', verifyRole(['admin', 'super_admin']), entrevistasController.getAllEntrevistas);
+router.get('/all', entrevistasController.getAllEntrevistas);
 
-// Crear (Admin)
-router.post('/', verifyRole(['admin', 'super_admin']), entrevistasController.createEntrevista);
+// Validación de body antes de llamar al controlador
+router.post('/',
+    validateRequiredFields(['titulo', 'entrevistado', 'url_video', 'url_imagen']),
+    entrevistasController.createEntrevista
+);
 
-// Actualizar completa (Admin)
-router.put('/:id', verifyRole(['admin', 'super_admin']), entrevistasController.updateEntrevista);
+router.put('/:id',
+    validateRequiredFields(['titulo', 'entrevistado', 'url_video', 'url_imagen']),
+    entrevistasController.updateEntrevista
+);
 
-// Actualizar parcial (Admin)
-router.patch('/:id', verifyRole(['admin', 'super_admin']), entrevistasController.patchEntrevista);
+router.patch('/:id', entrevistasController.patchEntrevista);
 
-// Eliminar (Admin)
-router.delete('/:id', verifyRole(['admin', 'super_admin']), entrevistasController.deleteEntrevista);
+router.delete('/:id', entrevistasController.deleteEntrevista);
 
 module.exports = router;

@@ -5,9 +5,11 @@ const morgan = require('morgan');
 const helmet = require('helmet');
 const db = require('./config/db');
 
-const usuarioRoutes = require('./routes/usuario.routes');
+// Importar rutas (Nomenclatura Plural Estandarizada)
+const usuariosRoutes = require('./routes/usuarios.routes');
 const entrevistasRoutes = require('./routes/entrevistas.routes');
-
+const historiasRoutes = require('./routes/historias.routes');
+const authRoutes = require('./routes/auth.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,17 +25,18 @@ app.use(express.json()); // Parsear JSON body
 app.use(express.urlencoded({ extended: true }));
 
 // Rutas
-app.use('/api/auth', require('./routes/auth.routes'));
-app.use('/api/history', require('./routes/historia.routes'));
-app.use('/api/usuarios', usuarioRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/history', historiasRoutes); // Mantenemos /history por compatibilidad frontend
+app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/entrevistas', entrevistasRoutes);
 
 // Ruta de prueba
 app.get('/', (req, res) => {
     res.json({
-        message: 'Bienvenido a la API de VislAcap',
+        message: 'Bienvenido a la API de VisIAcap',
         version: '1.0.0',
-        status: 'running'
+        status: 'running',
+        architecture: 'MVC Refactored'
     });
 });
 
@@ -54,6 +57,8 @@ app.listen(PORT, () => {
     console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
     console.log('URLS TEMPORALES');
     console.log(`• Usuarios: http://localhost:${PORT}/api/usuarios`)
+    console.log(`• Entrevistas: http://localhost:${PORT}/api/entrevistas`)
+    console.log(`• Historia: http://localhost:${PORT}/api/history`)
     console.log('')
     console.log('================================================');
 });
