@@ -20,7 +20,7 @@ const HistoriasModel = {
             FROM historia h
             LEFT JOIN historia_i18n hi ON h.id = hi.historia_id
             WHERE hi.locale = ? AND h.visible = 1
-            ORDER BY h.anio ASC, h.order_index ASC
+            ORDER BY h.fecha ASC
         `;
         const [rows] = await db.query(query, [lang]);
         return rows;
