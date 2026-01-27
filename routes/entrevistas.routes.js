@@ -8,14 +8,15 @@ const express = require('express');
 const router = express.Router();
 const entrevistasController = require('../controllers/entrevistas.controller');
 const { validateRequiredFields } = require('../middlewares/validation.middleware');
-// TODO: Importar authMiddleware cuando estemos listos para proteger rutas
+const { verifyToken, verifyRole } = require('../middlewares/auth.middleware');
 
 // Rutas Públicas
 router.get('/', entrevistasController.getEntrevistas);
 
 // Rutas Admin (Protegidas)
-// router.use(verifyToken); // Descomentar para activar protección global en estas rutas
-// router.use(verifyRole(['admin', 'superadmin']));
+// Rutas Admin (Protegidas)
+router.use(verifyToken);
+router.use(verifyRole(['admin', 'superadmin']));
 
 router.get('/all', entrevistasController.getAllEntrevistas);
 
