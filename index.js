@@ -10,6 +10,7 @@ const usuariosRoutes = require('./routes/usuarios.routes');
 const entrevistasRoutes = require('./routes/entrevistas.routes');
 const historiasRoutes = require('./routes/historias.routes');
 const authRoutes = require('./routes/auth.routes');
+const proyectosRoutes = require('./routes/proyectos.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -29,6 +30,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/history', historiasRoutes); // Mantenemos /history por compatibilidad frontend
 app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/entrevistas', entrevistasRoutes);
+app.use('/api/proyectos', proyectosRoutes);
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -58,6 +60,7 @@ app.listen(PORT, () => {
     console.log('URLS TEMPORALES');
     console.log(`• Usuarios: http://localhost:${PORT}/api/usuarios`)
     console.log(`• Entrevistas: http://localhost:${PORT}/api/entrevistas`)
+    console.log(`• Proyectos: http://localhost:${PORT}/api/proyectos`)
     console.log(`• Historia: http://localhost:${PORT}/api/history`)
     console.log('')
     console.log('================================================');
