@@ -11,6 +11,7 @@ const entrevistasRoutes = require('./routes/entrevistas.routes');
 const historiasRoutes = require('./routes/historias.routes');
 const authRoutes = require('./routes/auth.routes');
 const proyectosRoutes = require('./routes/proyectos.routes');
+const metadataRoutes = require('./routes/metadata.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -31,6 +32,7 @@ app.use('/api/history', historiasRoutes); // Mantenemos /history por compatibili
 app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/entrevistas', entrevistasRoutes);
 app.use('/api/proyectos', proyectosRoutes);
+app.use('/api/metadata', metadataRoutes);
 
 // Ruta de prueba
 app.get('/', (req, res) => {
