@@ -13,8 +13,16 @@ const ProyectosModel = {
                 pi.titulo, pi.resumen, pi.descripcion
             FROM proyectos p
             LEFT JOIN proyectos_i18n pi ON p.id = pi.proyecto_id
-            WHERE pi.locale = ? AND p.tipo = ?
+            WHERE pi.locale = ?
         `;
+
+        const params = [lang];
+
+        // Lógica Híbrida: Si 'all', no filtramos por tipo.
+        if (tipo !== 'all') {
+            query += ' AND p.tipo = ?';
+            params.push(tipo);
+        }
 
         if (!includeUnpublished) {
             query += ' AND p.is_published = 1';
@@ -22,7 +30,7 @@ const ProyectosModel = {
 
         query += ' ORDER BY p.order_index ASC, p.created_at DESC';
 
-        const [rows] = await db.query(query, [lang, tipo]);
+        const [rows] = await db.query(query, params);
         return rows;
     },
 

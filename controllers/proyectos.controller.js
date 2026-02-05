@@ -32,7 +32,7 @@ const ProyectosController = {
     async getAllAdmin(req, res) {
         try {
             const lang = req.query.lang || 'es';
-            const tipo = req.query.tipo || 'presente';
+            const tipo = req.query.tipo || 'all'; // Default: Traer TODOS para Admin
 
             const proyectos = await ProyectosModel.findAll(lang, tipo, true); // Incluye ocultos
             return res.json(proyectos);
@@ -107,7 +107,7 @@ const ProyectosController = {
             const data = req.body;
 
             // Validaciones básicas de existencia de datos a actualizar
-            
+
 
             const success = await ProyectosModel.updateFull(id, data, userId);
 
