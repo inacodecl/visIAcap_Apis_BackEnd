@@ -8,8 +8,11 @@ const router = express.Router();
 const ProyectosController = require('../controllers/proyectos.controller');
 const { verifyToken, verifyRole } = require('../middlewares/auth.middleware');
 
+// Rutas Privadas (Admin/SuperAdmin) - Lectura Admin (Importante: Antes de /:id)
+router.get('/admin/list', verifyToken, verifyRole(['admin', 'super_admin']), ProyectosController.getAllAdmin);
+
 // Rutas Públicas (Lectura)
-router.get('/', ProyectosController.getProyectosPresente);
+router.get('/', ProyectosController.getAll);
 router.get('/:id', ProyectosController.getProyectoById);
 
 // Rutas Privadas (Admin/SuperAdmin) - Escritura

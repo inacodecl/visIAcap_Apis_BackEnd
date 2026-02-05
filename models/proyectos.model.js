@@ -4,8 +4,8 @@ const ProyectosModel = {
     /**
      * Obtiene el listado de proyectos filtrado por idioma y tipo
      */
-    async findAll(lang = 'es', tipo = 'presente') {
-        const query = `
+    async findAll(lang = 'es', tipo = 'presente', includeUnpublished = false) {
+        let query = `
             SELECT 
                 p.id, p.slug, p.tipo, p.featured, p.order_index, 
                 p.image_cover_url, p.url_externa, p.start_date, p.end_date, 
@@ -13,9 +13,15 @@ const ProyectosModel = {
                 pi.titulo, pi.resumen, pi.descripcion
             FROM proyectos p
             LEFT JOIN proyectos_i18n pi ON p.id = pi.proyecto_id
-            WHERE pi.locale = ? AND p.tipo = ? AND p.is_published = 1
-            ORDER BY p.order_index ASC, p.created_at DESC
+            WHERE pi.locale = ? AND p.tipo = ?
         `;
+
+        if (!includeUnpublished) {
+            query += ' AND p.is_published = 1';
+        }
+
+        query += ' ORDER BY p.order_index ASC, p.created_at DESC';
+
         const [rows] = await db.query(query, [lang, tipo]);
         return rows;
     },

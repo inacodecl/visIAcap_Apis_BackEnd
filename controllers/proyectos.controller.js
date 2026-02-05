@@ -9,16 +9,36 @@ const ProyectosController = {
 
     /**
      * GET /api/proyectos
-     * Obtiene proyectos de tipo 'presente'
+     * Obtiene proyectos. Filtra por tipo si se envía (ej: ?tipo=futuro).
+     * Por defecto tipo='presente'.
      */
-    async getProyectosPresente(req, res) {
+    async getAll(req, res) {
         try {
             const lang = req.query.lang || 'es';
-            const proyectos = await ProyectosModel.findAll(lang, 'presente');
+            const tipo = req.query.tipo || 'presente';
+
+            const proyectos = await ProyectosModel.findAll(lang, tipo, false); // Solo publicados
             return res.json(proyectos);
         } catch (error) {
-            console.error('Error en getProyectosPresente:', error);
+            console.error('Error en getAll:', error);
             return res.status(500).json({ message: 'Error interno del servidor al obtener proyectos.' });
+        }
+    },
+
+    /**
+     * GET /api/proyectos/admin/list
+     * Obtiene TODOS los proyectos (publicados y borradores)
+     */
+    async getAllAdmin(req, res) {
+        try {
+            const lang = req.query.lang || 'es';
+            const tipo = req.query.tipo || 'presente';
+
+            const proyectos = await ProyectosModel.findAll(lang, tipo, true); // Incluye ocultos
+            return res.json(proyectos);
+        } catch (error) {
+            console.error('Error en getAllAdmin:', error);
+            return res.status(500).json({ message: 'Error interno al obtener proyectos admin.' });
         }
     },
 
@@ -57,8 +77,7 @@ const ProyectosController = {
                 return res.status(400).json({ message: 'Faltan campos obligatorios (slug, titulo).' });
             }
 
-            // Forzar tipo 'presente' si no se envía, o validarlo
-            // El requerimiento dice "informacion del boton presente", asumimos tipo=presente por defecto
+            // Si no viene tipo, asumimos 'presente' (default mysql o lógica app)
             if (!data.tipo) data.tipo = 'presente';
 
             const newId = await ProyectosModel.create(data, userId);
@@ -88,7 +107,7 @@ const ProyectosController = {
             const data = req.body;
 
             // Validaciones básicas de existencia de datos a actualizar
-            // (En un escenario real se validaría schema con Joi/Zod)
+            
 
             const success = await ProyectosModel.updateFull(id, data, userId);
 
