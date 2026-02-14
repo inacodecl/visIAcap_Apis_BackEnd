@@ -14,6 +14,11 @@ const createUser = async (req, res) => {
     try {
         const { nombre, apellido, email, password, rol = 'viewer' } = req.body;
 
+        // Validar dominio institucional
+        if (!email.endsWith('@inacapmail.cl') && !email.endsWith('@inacap.cl')) {
+            return res.status(400).json({ message: 'El correo debe ser institucional (@inacapmail.cl o @inacap.cl)' });
+        }
+
         // Verificar existencia (Lógica de negocio)
         const existingUser = await UsuariosModel.findByEmail(email);
         if (existingUser) {
