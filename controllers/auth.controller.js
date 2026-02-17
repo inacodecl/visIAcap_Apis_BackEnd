@@ -16,7 +16,6 @@ const login = async (req, res) => {
         }
 
         // Validar dominio institucional
-        // Validar dominio institucional
         if (!email.endsWith('@inacapmail.cl') && !email.endsWith('@inacap.cl')) {
             return res.status(403).json({ message: 'Solo se permite el acceso con correo institucional (@inacapmail.cl o @inacap.cl)' });
         }

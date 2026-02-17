@@ -90,6 +90,15 @@ const UsuariosModel = {
         const query = `UPDATE usuarios SET ${setClause}, updated_at = NOW() WHERE id = ?`;
         const [result] = await db.query(query, values);
         return result.affectedRows > 0;
+    },
+
+    /**
+     * Elimina un usuario físicamente de la base de datos (Requiere validación previa de roles)
+     * @param {number} id 
+     */
+    async delete(id) {
+        const [result] = await db.query('DELETE FROM usuarios WHERE id = ?', [id]);
+        return result.affectedRows > 0;
     }
 };
 

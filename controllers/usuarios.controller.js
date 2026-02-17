@@ -1,5 +1,4 @@
 /**
- * Archivo: controllers/usuarios.controller.js
  * Descripción: Controlador para la gestión de usuarios (Creación, Listado, Modificación).
  *              Delega el acceso a datos a UsuariosModel.
  */
@@ -107,7 +106,10 @@ const updateUserPartial = async (req, res) => {
         // Construir objeto de updates solo con lo definido
         const updates = {};
         if (rol !== undefined) updates.rol = rol;
-        if (is_active !== undefined) updates.is_active = is_active;
+        if (is_active !== undefined) {
+            // Convertir a 1 (true) o 0 (false) para asegurar compatibilidad con TINYINT
+            updates.is_active = (String(is_active) === 'true' || is_active === 1 || is_active === true) ? 1 : 0;
+        }
 
         if (Object.keys(updates).length === 0) {
             return res.status(400).json({ message: 'No se enviaron campos para actualizar (rol, is_active)' });
@@ -127,9 +129,70 @@ const updateUserPartial = async (req, res) => {
     }
 };
 
+/**
+ * Eliminar usuario (Físicamente)
+ * Solo SuperAdmin puede eliminar.
+ * Restricción: No puede eliminarse a sí mismo.
+ */
+const deleteUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const requestingUserId = req.user.id; // Asumiendo que verifyToken llena req.user
+
+        // 1. Prevención de Auto-Eliminación (Anti-Suicidio Digital)
+        if (parseInt(id) === requestingUserId) {
+            return res.status(403).json({
+                ok: false,
+                error: {
+                    code: 'ACTION_FORBIDDEN',
+                    message: 'User attempted to delete themselves',
+                    userMessage: 'No puedes eliminar tu propia cuenta.'
+                }
+            });
+        }
+
+        // 2. Verificar existencia
+        const user = await UsuariosModel.findById(id);
+        if (!user) {
+            return res.status(404).json({
+                ok: false,
+                error: {
+                    code: 'USER_NOT_FOUND',
+                    message: `User with id ${id} not found`,
+                    userMessage: 'Usuario no encontrado.'
+                }
+            });
+        }
+
+        // 3. Eliminar
+        const success = await UsuariosModel.delete(id);
+
+        if (success) {
+            res.json({
+                ok: true,
+                message: 'Usuario eliminado correctamente'
+            });
+        } else {
+            throw new Error('No se pudo eliminar el registro en BD');
+        }
+
+    } catch (error) {
+        console.error('Error eliminando usuario:', error);
+        res.status(500).json({
+            ok: false,
+            error: {
+                code: 'SERVER_ERROR',
+                message: error.message,
+                userMessage: 'Error interno al intentar eliminar el usuario.'
+            }
+        });
+    }
+};
+
 module.exports = {
     createUser,
     getUsers,
     getUserById,
-    updateUserPartial
+    updateUserPartial,
+    deleteUser
 };

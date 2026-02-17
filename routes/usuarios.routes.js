@@ -28,4 +28,7 @@ router.post('/',
 // Actualizar usuario parcialmente (Solo SuperAdmin)
 router.patch('/:id', verifyRole(['super_admin']), usuariosController.updateUserPartial);
 
+// Eliminar usuario (Solo SuperAdmin)
+router.delete('/:id', verifyRole(['super_admin']), usuariosController.deleteUser);
+
 module.exports = router;
