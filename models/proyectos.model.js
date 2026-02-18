@@ -112,7 +112,7 @@ const ProyectosModel = {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     slug, tipo, featured ? 1 : 0, order_index || 0,
-                    image_cover_url, url_externa, start_date, end_date,
+                    image_cover_url, url_externa, start_date || null, end_date || null,
                     location, is_published ? 1 : 0, userId, userId
                 ]
             );
@@ -203,7 +203,7 @@ const ProyectosModel = {
                 WHERE id=?`,
                 [
                     slug, tipo, featured ? 1 : 0, order_index || 0, image_cover_url,
-                    url_externa, start_date, end_date, location, is_published ? 1 : 0,
+                    url_externa, start_date || null, end_date || null, location, is_published ? 1 : 0,
                     userId, id
                 ]
             );
