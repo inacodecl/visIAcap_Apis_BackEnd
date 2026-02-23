@@ -43,7 +43,8 @@ const MetadataController = {
             if (!slug || !nombre_es) {
                 return res.status(400).json({ message: 'Slug y Nombre (ES) son requeridos.' });
             }
-            const id = await TagsModel.create(slug, nombre_es, nombre_en || nombre_es);
+            const userId = req.user ? req.user.id : null;
+            const id = await TagsModel.create(slug, nombre_es, nombre_en || nombre_es, userId);
             return res.status(201).json({ message: 'Tag creado', id });
         } catch (error) {
             console.error('Error createTag:', error);
@@ -82,7 +83,8 @@ const MetadataController = {
             if (!slug || !nombre_es) {
                 return res.status(400).json({ message: 'Slug y Nombre (ES) son requeridos.' });
             }
-            const id = await CategoriasModel.create(slug, nombre_es, nombre_en || nombre_es);
+            const userId = req.user ? req.user.id : null;
+            const id = await CategoriasModel.create(slug, nombre_es, nombre_en || nombre_es, userId);
             return res.status(201).json({ message: 'Categoría creada', id });
         } catch (error) {
             console.error('Error createCategoria:', error);

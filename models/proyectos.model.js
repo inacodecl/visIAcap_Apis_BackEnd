@@ -9,10 +9,13 @@ const ProyectosModel = {
             SELECT 
                 p.id, p.slug, p.tipo, p.featured, p.order_index, 
                 p.image_cover_url, p.url_externa, p.start_date, p.end_date, 
-                p.location, p.is_published,
-                pi.titulo, pi.resumen, pi.descripcion
+                p.location, p.is_published, p.created_by, p.updated_by, p.created_at, p.updated_at,
+                pi.titulo, pi.resumen, pi.descripcion,
+                uc.email AS creator_email, uu.email AS updater_email
             FROM proyectos p
             LEFT JOIN proyectos_i18n pi ON p.id = pi.proyecto_id
+            LEFT JOIN usuarios uc ON p.created_by = uc.id
+            LEFT JOIN usuarios uu ON p.updated_by = uu.id
             WHERE pi.locale = ?
         `;
 
@@ -44,9 +47,12 @@ const ProyectosModel = {
             const queryP = `
                 SELECT 
                     p.*,
-                    pi.titulo, pi.resumen, pi.descripcion, pi.locale
+                    pi.titulo, pi.resumen, pi.descripcion, pi.locale,
+                    uc.email AS creator_email, uu.email AS updater_email
                 FROM proyectos p
                 LEFT JOIN proyectos_i18n pi ON p.id = pi.proyecto_id
+                LEFT JOIN usuarios uc ON p.created_by = uc.id
+                LEFT JOIN usuarios uu ON p.updated_by = uu.id
                 WHERE p.id = ? AND pi.locale = ?
             `;
             const [rowsP] = await connection.query(queryP, [id, lang]);
@@ -61,18 +67,26 @@ const ProyectosModel = {
             // Tags (con nombres traducidos)
             const nombreTag = lang === 'en' ? 'nombre_en' : 'nombre_es';
             const [tags] = await connection.query(`
-                SELECT t.id, t.slug, t.${nombreTag} as nombre 
+                SELECT t.id, t.slug, t.${nombreTag} as nombre,
+                       t.created_at, t.updated_at, t.created_by, t.updated_by,
+                       uc.email AS creator_email, uu.email AS updater_email
                 FROM tags t 
                 JOIN proyecto_tag pt ON t.id = pt.tag_id 
+                LEFT JOIN usuarios uc ON t.created_by = uc.id
+                LEFT JOIN usuarios uu ON t.updated_by = uu.id
                 WHERE pt.proyecto_id = ?
             `, [id]);
 
             // Categorías (con nombres traducidos)
             const nombreCat = lang === 'en' ? 'nombre_en' : 'nombre_es';
             const [categories] = await connection.query(`
-                SELECT c.id, c.slug, c.${nombreCat} as nombre 
+                SELECT c.id, c.slug, c.${nombreCat} as nombre,
+                       c.created_at, c.updated_at, c.created_by, c.updated_by,
+                       uc.email AS creator_email, uu.email AS updater_email
                 FROM categorias c 
                 JOIN proyecto_categoria pc ON c.id = pc.categoria_id 
+                LEFT JOIN usuarios uc ON c.created_by = uc.id
+                LEFT JOIN usuarios uu ON c.updated_by = uu.id
                 WHERE pc.proyecto_id = ?
             `, [id]);
 

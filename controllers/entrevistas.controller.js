@@ -39,8 +39,11 @@ exports.getAllEntrevistas = async (req, res) => {
  */
 exports.createEntrevista = async (req, res) => {
     try {
+        // ID de usuario gestionado por auth middleware
+        const userId = req.user ? req.user.id : null;
+
         // La validación de campos obligatorios se delega al middleware 'validation.middleware'
-        const id = await EntrevistasModel.create(req.body);
+        const id = await EntrevistasModel.create(req.body, userId);
         res.status(201).json({ id, message: 'Entrevista creada correctamente' });
     } catch (error) {
         console.error(error);
@@ -54,7 +57,8 @@ exports.createEntrevista = async (req, res) => {
 exports.updateEntrevista = async (req, res) => {
     const { id } = req.params;
     try {
-        const success = await EntrevistasModel.update(id, req.body);
+        const userId = req.user ? req.user.id : null;
+        const success = await EntrevistasModel.update(id, req.body, userId);
         if (!success) {
             return res.status(404).json({ message: 'Entrevista no encontrada' });
         }
@@ -71,8 +75,9 @@ exports.updateEntrevista = async (req, res) => {
 exports.patchEntrevista = async (req, res) => {
     const { id } = req.params;
     try {
+        const userId = req.user ? req.user.id : null;
         // Verificación básica de que hay fields válidos delega en el modelo o se valida aquí si es crítica la respuesta 400
-        const success = await EntrevistasModel.patch(id, req.body);
+        const success = await EntrevistasModel.patch(id, req.body, userId);
 
         // Si el modelo devuelve false podría ser porque no encontró el ID o no hubo updates.
         // Asumimos 404 si es un error de ID.

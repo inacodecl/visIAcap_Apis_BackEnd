@@ -157,30 +157,45 @@ const HistoriasModel = {
         try {
             await connection.beginTransaction();
 
-            const {
-                anio, fecha, location, visible, order_index, categoria_id, media_url,
-                titulo, descripcion, audio_url,
-                media = [],
-                tags = []
-            } = data;
+            // 0. Obtener estado previo de la Base de Datos para preservación
+            const [currentRows] = await connection.query('SELECT * FROM historia WHERE id = ?', [id]);
 
-            // 1. Actualizar historia
-            const [result] = await connection.query(
-                `UPDATE historia SET 
-                anio=?, fecha=?, location=?, visible=?, order_index=?, categoria_id=?, media_url=?, updated_by=?, updated_at=NOW()
-                WHERE id=?`,
-                [anio, fecha, location, visible ? 1 : 0, order_index, categoria_id, media_url, userId, id]
-            );
-
-            if (result.affectedRows === 0) {
+            if (currentRows.length === 0) {
                 await connection.rollback();
                 return false; // Hito no encontrado
             }
 
+            const current = currentRows[0];
+
+            // Deep Merge: Si 'data' no trae el campo, usamos lo que ya estaba en la BBDD
+            const anio = data.anio !== undefined ? data.anio : current.anio;
+            const fecha = data.fecha !== undefined ? data.fecha : current.fecha;
+            const location = data.location !== undefined ? data.location : current.location;
+            const visible = data.visible !== undefined ? (data.visible ? 1 : 0) : current.visible;
+            const order_index = data.order_index !== undefined ? data.order_index : current.order_index;
+            const categoria_id = data.categoria_id !== undefined ? data.categoria_id : current.categoria_id;
+            const media_url = data.media_url !== undefined ? data.media_url : current.media_url;
+
+            // Extraer traducciones y relaciones
+            let { titulo, descripcion, audio_url, media = [], tags = [] } = data;
+
+            // 1. Actualizar historia (ya fusionado)
+            const [result] = await connection.query(
+                `UPDATE historia SET 
+                anio=?, fecha=?, location=?, visible=?, order_index=?, categoria_id=?, media_url=?, updated_by=?, updated_at=NOW()
+                WHERE id=?`,
+                [anio, fecha, location, visible, order_index, categoria_id, media_url, userId, id]
+            );
+
             // 2. Actualizar o Insertar traducción
-            const [exists] = await connection.query('SELECT id FROM historia_i18n WHERE historia_id = ? AND locale = ?', [id, locale]);
+            const [exists] = await connection.query('SELECT * FROM historia_i18n WHERE historia_id = ? AND locale = ?', [id, locale]);
 
             if (exists.length > 0) {
+                const currentI18n = exists[0];
+                titulo = titulo !== undefined ? titulo : currentI18n.titulo;
+                descripcion = descripcion !== undefined ? descripcion : currentI18n.descripcion;
+                audio_url = audio_url !== undefined ? audio_url : currentI18n.audio_url;
+
                 await connection.query(
                     `UPDATE historia_i18n SET titulo=?, descripcion=?, audio_url=? WHERE historia_id=? AND locale=?`,
                     [titulo, descripcion, audio_url, id, locale]
