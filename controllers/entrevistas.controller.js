@@ -11,9 +11,10 @@ const EntrevistasModel = require('../models/entrevistas.model');
  */
 exports.getEntrevistas = async (req, res) => {
     try {
-        const rows = await EntrevistasModel.findAllVisible();
+        const lang = req.query.lang || 'es';
+        const rows = await EntrevistasModel.findAllVisible(lang);
         res.json(rows);
-        console.log('DEBUG [getEntrevistas]: Entrevistas obtenidas correctamente', { count: rows.length });
+        console.log('DEBUG [getEntrevistas]: Entrevistas obtenidas correctamente', { count: rows.length, lang });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Error al obtener entrevistas' });

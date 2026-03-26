@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const TranslationService = require('../services/translation.service');
 
 const ProyectosModel = {
     /**
@@ -9,14 +10,17 @@ const ProyectosModel = {
             SELECT 
                 p.id, p.slug, p.tipo, p.featured, p.order_index, 
                 p.image_cover_url, p.url_externa, p.start_date, p.end_date, 
-                p.location, p.is_published, p.created_by, p.updated_by, p.created_at, p.updated_at,
-                pi.titulo, pi.resumen, pi.descripcion,
+                p.location, p.is_published, p.created_at, p.updated_at,
+                COALESCE(pi.titulo, pi_es.titulo) AS titulo,
+                COALESCE(pi.resumen, pi_es.resumen) AS resumen,
+                COALESCE(pi.descripcion, pi_es.descripcion) AS descripcion,
                 uc.email AS creator_email, uu.email AS updater_email
             FROM proyectos p
-            LEFT JOIN proyectos_i18n pi ON p.id = pi.proyecto_id
+            LEFT JOIN proyectos_i18n pi ON p.id = pi.proyecto_id AND pi.locale = ?
+            LEFT JOIN proyectos_i18n pi_es ON p.id = pi_es.proyecto_id AND pi_es.locale = 'es'
             LEFT JOIN usuarios uc ON p.created_by = uc.id
             LEFT JOIN usuarios uu ON p.updated_by = uu.id
-            WHERE pi.locale = ?
+            WHERE 1=1
         `;
 
         const params = [lang];
@@ -47,15 +51,19 @@ const ProyectosModel = {
             const queryP = `
                 SELECT 
                     p.*,
-                    pi.titulo, pi.resumen, pi.descripcion, pi.locale,
+                    COALESCE(pi.titulo, pi_es.titulo) AS titulo,
+                    COALESCE(pi.resumen, pi_es.resumen) AS resumen,
+                    COALESCE(pi.descripcion, pi_es.descripcion) AS descripcion,
+                    COALESCE(pi.locale, pi_es.locale) AS locale,
                     uc.email AS creator_email, uu.email AS updater_email
                 FROM proyectos p
-                LEFT JOIN proyectos_i18n pi ON p.id = pi.proyecto_id
+                LEFT JOIN proyectos_i18n pi ON p.id = pi.proyecto_id AND pi.locale = ?
+                LEFT JOIN proyectos_i18n pi_es ON p.id = pi_es.proyecto_id AND pi_es.locale = 'es'
                 LEFT JOIN usuarios uc ON p.created_by = uc.id
                 LEFT JOIN usuarios uu ON p.updated_by = uu.id
-                WHERE p.id = ? AND pi.locale = ?
+                WHERE p.id = ?
             `;
-            const [rowsP] = await connection.query(queryP, [id, lang]);
+            const [rowsP] = await connection.query(queryP, [lang, id]);
 
             if (rowsP.length === 0) return null;
             const proyecto = rowsP[0];
@@ -67,26 +75,18 @@ const ProyectosModel = {
             // Tags (con nombres traducidos)
             const nombreTag = lang === 'en' ? 'nombre_en' : 'nombre_es';
             const [tags] = await connection.query(`
-                SELECT t.id, t.slug, t.${nombreTag} as nombre,
-                       t.created_at, t.updated_at, t.created_by, t.updated_by,
-                       uc.email AS creator_email, uu.email AS updater_email
+                SELECT t.id, t.slug, t.${nombreTag} as nombre
                 FROM tags t 
                 JOIN proyecto_tag pt ON t.id = pt.tag_id 
-                LEFT JOIN usuarios uc ON t.created_by = uc.id
-                LEFT JOIN usuarios uu ON t.updated_by = uu.id
                 WHERE pt.proyecto_id = ?
             `, [id]);
 
             // Categorías (con nombres traducidos)
             const nombreCat = lang === 'en' ? 'nombre_en' : 'nombre_es';
             const [categories] = await connection.query(`
-                SELECT c.id, c.slug, c.${nombreCat} as nombre,
-                       c.created_at, c.updated_at, c.created_by, c.updated_by,
-                       uc.email AS creator_email, uu.email AS updater_email
+                SELECT c.id, c.slug, c.${nombreCat} as nombre
                 FROM categorias c 
                 JOIN proyecto_categoria pc ON c.id = pc.categoria_id 
-                LEFT JOIN usuarios uc ON c.created_by = uc.id
-                LEFT JOIN usuarios uu ON c.updated_by = uu.id
                 WHERE pc.proyecto_id = ?
             `, [id]);
 
@@ -182,6 +182,12 @@ const ProyectosModel = {
             }
 
             await connection.commit();
+
+            // Auto-Traducción Inteligente
+            if (locale === 'es') {
+                this._runAutoTranslation(proyectoId, { titulo, resumen, descripcion }, ['en', 'ht']);
+            }
+
             return proyectoId;
 
         } catch (error) {
@@ -287,6 +293,12 @@ const ProyectosModel = {
             }
 
             await connection.commit();
+
+            // Auto-Traducción Inteligente en Update
+            if (locale === 'es') {
+                this._runAutoTranslation(id, { titulo, resumen, descripcion }, ['en', 'ht']);
+            }
+
             return true;
 
         } catch (error) {
@@ -326,6 +338,28 @@ const ProyectosModel = {
             throw error;
         } finally {
             connection.release();
+        }
+    },
+
+    /**
+     * Lógica interna para ejecutar traducciones en segundo plano
+     */
+    async _runAutoTranslation(proyectoId, fields, targetLocales) {
+        try {
+            const translations = await TranslationService.translateBatch(fields, targetLocales);
+            
+            for (const locale of targetLocales) {
+                const { titulo, resumen, descripcion } = translations[locale];
+                await db.query(
+                    `INSERT INTO proyectos_i18n (proyecto_id, locale, titulo, resumen, descripcion) 
+                     VALUES (?, ?, ?, ?, ?) 
+                     ON DUPLICATE KEY UPDATE titulo = VALUES(titulo), resumen = VALUES(resumen), descripcion = VALUES(descripcion)`,
+                    [proyectoId, locale, titulo, resumen, descripcion]
+                );
+            }
+            console.log(`[ProyectosModel] Auto-traducción completada para ID: ${proyectoId}`);
+        } catch (error) {
+            console.error(`[ProyectosModel] Fallo en auto-traducción:`, error);
         }
     }
 };

@@ -11,12 +11,8 @@ const CategoriasModel = {
 
         const query = `
             SELECT c.id, c.slug, c.${nombreField} as nombre,
-                   c.created_at, c.updated_at, c.created_by, c.updated_by,
-                   uc.email AS creator_email, 
-                   uu.email AS updater_email 
+                   c.created_at
             FROM categorias c
-            LEFT JOIN usuarios uc ON c.created_by = uc.id 
-            LEFT JOIN usuarios uu ON c.updated_by = uu.id
             ORDER BY c.${nombreField} ASC
         `;
 
@@ -32,8 +28,8 @@ const CategoriasModel = {
      * @param {number} userId - ID del creador (Golden Standard)
      */
     async create(slug, nombre_es, nombre_en, userId = null) {
-        const query = `INSERT INTO categorias (slug, nombre_es, nombre_en, created_by, updated_by) VALUES (?, ?, ?, ?, ?)`;
-        const [result] = await db.query(query, [slug, nombre_es, nombre_en, userId, userId]);
+        const query = `INSERT INTO categorias (slug, nombre_es, nombre_en) VALUES (?, ?, ?)`;
+        const [result] = await db.query(query, [slug, nombre_es, nombre_en]);
         return result.insertId;
     },
 

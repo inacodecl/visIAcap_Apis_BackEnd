@@ -5,23 +5,25 @@
  */
 
 const db = require('../config/db');
+const TranslationService = require('../services/translation.service');
 
 const EntrevistasModel = {
     /**
      * Obtiene todas las entrevistas visibles (para usuarios públicos)
+     * @param {string} lang - Código de idioma (es, en, ht)
      */
-    async findAllVisible() {
+    async findAllVisible(lang = 'es') {
         const query = `
-            SELECT e.*, 
-                   uc.email AS creator_email, 
-                   uu.email AS updater_email 
+            SELECT e.*,
+                   COALESCE(ei.titulo, e.titulo) AS titulo,
+                   COALESCE(ei.entrevistado, e.entrevistado) AS entrevistado,
+                   COALESCE(ei.descripcion, e.descripcion) AS descripcion
             FROM entrevistas e 
-            LEFT JOIN usuarios uc ON e.created_by = uc.id 
-            LEFT JOIN usuarios uu ON e.updated_by = uu.id
+            LEFT JOIN entrevistas_i18n ei ON e.id = ei.entrevista_id AND ei.locale = ?
             WHERE e.visible = TRUE 
             ORDER BY e.fecha_grabacion DESC
         `;
-        const [rows] = await db.query(query);
+        const [rows] = await db.query(query, [lang]);
         return rows;
     },
 
@@ -30,12 +32,8 @@ const EntrevistasModel = {
      */
     async findAll() {
         const query = `
-            SELECT e.*, 
-                   uc.email AS creator_email, 
-                   uu.email AS updater_email 
+            SELECT e.*
             FROM entrevistas e 
-            LEFT JOIN usuarios uc ON e.created_by = uc.id 
-            LEFT JOIN usuarios uu ON e.updated_by = uu.id
             ORDER BY e.fecha_grabacion DESC
         `;
         const [rows] = await db.query(query);
@@ -48,12 +46,19 @@ const EntrevistasModel = {
      * @param {number} userId - ID del usuario creador (Golden Standard)
      */
     async create(data, userId = null) {
-        const { titulo, entrevistado, descripcion, url_video, url_imagen, fecha_grabacion, visible } = data;
+        const { titulo, entrevistado, descripcion, url_video, url_imagen, fecha_grabacion, visible, locale = 'es' } = data;
         const [result] = await db.query(
-            'INSERT INTO entrevistas (titulo, entrevistado, descripcion, url_video, url_imagen, fecha_grabacion, visible, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [titulo, entrevistado, descripcion, url_video, url_imagen, fecha_grabacion || new Date(), visible !== undefined ? visible : true, userId, userId]
+            'INSERT INTO entrevistas (titulo, entrevistado, descripcion, url_video, url_imagen, fecha_grabacion, visible) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [titulo, entrevistado, descripcion, url_video, url_imagen, fecha_grabacion || new Date(), visible !== undefined ? visible : true]
         );
-        return result.insertId;
+        const entrevistaId = result.insertId;
+
+        // Auto-Traducción Inteligente
+        if (locale === 'es') {
+            this._runAutoTranslation(entrevistaId, { titulo, entrevistado, descripcion }, ['en', 'ht']);
+        }
+
+        return entrevistaId;
     },
 
     /**
@@ -63,11 +68,17 @@ const EntrevistasModel = {
      * @param {number} userId - ID del usuario que actualiza
      */
     async update(id, data, userId = null) {
-        const { titulo, entrevistado, descripcion, url_video, url_imagen, fecha_grabacion, visible } = data;
+        const { titulo, entrevistado, descripcion, url_video, url_imagen, fecha_grabacion, visible, locale = 'es' } = data;
         const [result] = await db.query(
-            'UPDATE entrevistas SET titulo=?, entrevistado=?, descripcion=?, url_video=?, url_imagen=?, fecha_grabacion=?, visible=?, updated_by=? WHERE id=?',
-            [titulo, entrevistado, descripcion, url_video, url_imagen, fecha_grabacion, visible, userId, id]
+            'UPDATE entrevistas SET titulo=?, entrevistado=?, descripcion=?, url_video=?, url_imagen=?, fecha_grabacion=?, visible=? WHERE id=?',
+            [titulo, entrevistado, descripcion, url_video, url_imagen, fecha_grabacion, visible, id]
         );
+
+        // Auto-Traducción Inteligente en Update
+        if (locale === 'es' && result.affectedRows > 0) {
+            this._runAutoTranslation(id, { titulo, entrevistado, descripcion }, ['en', 'ht']);
+        }
+
         return result.affectedRows > 0;
     },
 
@@ -91,10 +102,6 @@ const EntrevistasModel = {
 
         if (updates.length === 0) return false;
 
-        // Golden Standard: Siempre actualizar updated_by en PATCH
-        updates.push('updated_by = ?');
-        values.push(userId);
-
         values.push(id);
         const query = `UPDATE entrevistas SET ${updates.join(', ')} WHERE id = ?`;
 
@@ -109,6 +116,28 @@ const EntrevistasModel = {
     async delete(id) {
         const [result] = await db.query('DELETE FROM entrevistas WHERE id = ?', [id]);
         return result.affectedRows > 0;
+    },
+
+    /**
+     * Lógica interna para ejecutar traducciones en segundo plano
+     */
+    async _runAutoTranslation(entrevistaId, fields, targetLocales) {
+        try {
+            const translations = await TranslationService.translateBatch(fields, targetLocales);
+            
+            for (const locale of targetLocales) {
+                const { titulo, entrevistado, descripcion } = translations[locale];
+                await db.query(
+                    `INSERT INTO entrevistas_i18n (entrevista_id, locale, titulo, entrevistado, descripcion) 
+                     VALUES (?, ?, ?, ?, ?) 
+                     ON DUPLICATE KEY UPDATE titulo = VALUES(titulo), entrevistado = VALUES(entrevistado), descripcion = VALUES(descripcion)`,
+                    [entrevistaId, locale, titulo, entrevistado, descripcion]
+                );
+            }
+            console.log(`[EntrevistasModel] Auto-traducción completada para ID: ${entrevistaId}`);
+        } catch (error) {
+            console.error(`[EntrevistasModel] Fallo en auto-traducción:`, error);
+        }
     }
 };
 

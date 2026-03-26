@@ -9,13 +9,8 @@ const TagsModel = {
         const nombreField = lang === 'en' ? 'nombre_en' : 'nombre_es';
 
         const query = `
-            SELECT t.id, t.slug, t.${nombreField} as nombre,
-                   t.created_at, t.updated_at, t.created_by, t.updated_by,
-                   uc.email AS creator_email, 
-                   uu.email AS updater_email 
+            SELECT t.id, t.slug, t.${nombreField} as nombre
             FROM tags t
-            LEFT JOIN usuarios uc ON t.created_by = uc.id 
-            LEFT JOIN usuarios uu ON t.updated_by = uu.id
             ORDER BY t.${nombreField} ASC
         `;
 
@@ -31,8 +26,8 @@ const TagsModel = {
      * @param {number} userId - ID del creador (Golden Standard)
      */
     async create(slug, nombre_es, nombre_en, userId = null) {
-        const query = `INSERT INTO tags (slug, nombre_es, nombre_en, created_by, updated_by) VALUES (?, ?, ?, ?, ?)`;
-        const [result] = await db.query(query, [slug, nombre_es, nombre_en, userId, userId]);
+        const query = `INSERT INTO tags (slug, nombre_es, nombre_en) VALUES (?, ?, ?)`;
+        const [result] = await db.query(query, [slug, nombre_es, nombre_en]);
         return result.insertId;
     },
 

@@ -18,6 +18,10 @@ const PORT = process.env.PORT || 3000;
 
 // Middlewares
 app.use(helmet()); // Seguridad HTTP
+app.use((req, res, next) => {
+    console.log(`[REQUEST] ${req.method} ${req.url}`);
+    next();
+});
 app.use(morgan('dev')); // Logger
 app.use(cors({
     origin: ['http://localhost:8100', 'http://localhost:4200'],

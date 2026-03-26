@@ -5,21 +5,21 @@
  */
 
 const db = require('../config/db');
+const TranslationService = require('../services/translation.service');
 
 const HistoriasModel = {
     /**
      * Obtiene el listado de historias filtrado por idioma con Media y Tags
      * @param {string} lang - Código de idioma (es, en, etc.)
      */
-    async findAll(lang = 'es') {
-        // Usamos JSON_ARRAYAGG para agrupar media y tags. 
-        // IFNULL para devolver array vacío en vez de [null] si no hay relaciones.
-
+    async findAll(lang = 'es', includeHidden = false) {
         const query = `
             SELECT 
                 h.id, h.anio, h.fecha, h.location, h.visible, h.order_index, 
                 h.categoria_id, h.media_url, 
-                hi.titulo, hi.descripcion, hi.audio_url,
+                COALESCE(hi.titulo, hi_es.titulo) AS titulo,
+                COALESCE(hi.descripcion, hi_es.descripcion) AS descripcion,
+                COALESCE(hi.audio_url, hi_es.audio_url) AS audio_url,
                 
                 (
                     SELECT IFNULL(JSON_ARRAYAGG(
@@ -38,8 +38,9 @@ const HistoriasModel = {
                 ) as tags
 
             FROM historia h
-            LEFT JOIN historia_i18n hi ON h.id = hi.historia_id
-            WHERE hi.locale = ? AND h.visible = 1
+            LEFT JOIN historia_i18n hi ON h.id = hi.historia_id AND hi.locale = ?
+            LEFT JOIN historia_i18n hi_es ON h.id = hi_es.historia_id AND hi_es.locale = 'es'
+            ${includeHidden ? '' : 'WHERE h.visible = 1'}
             ORDER BY h.fecha ASC, h.anio ASC
         `;
         const [rows] = await db.query(query, [lang]);
@@ -55,7 +56,10 @@ const HistoriasModel = {
         const query = `
             SELECT 
                 h.*,
-                hi.titulo, hi.descripcion, hi.audio_url, hi.locale,
+                COALESCE(hi.titulo, hi_es.titulo) AS titulo,
+                COALESCE(hi.descripcion, hi_es.descripcion) AS descripcion,
+                COALESCE(hi.audio_url, hi_es.audio_url) AS audio_url,
+                COALESCE(hi.locale, hi_es.locale) AS locale,
                 
                 (
                     SELECT IFNULL(JSON_ARRAYAGG(
@@ -74,10 +78,11 @@ const HistoriasModel = {
                 ) as tags
 
             FROM historia h
-            LEFT JOIN historia_i18n hi ON h.id = hi.historia_id
-            WHERE h.id = ? AND hi.locale = ?
+            LEFT JOIN historia_i18n hi ON h.id = hi.historia_id AND hi.locale = ?
+            LEFT JOIN historia_i18n hi_es ON h.id = hi_es.historia_id AND hi_es.locale = 'es'
+            WHERE h.id = ?
         `;
-        const [rows] = await db.query(query, [id, lang]);
+        const [rows] = await db.query(query, [lang, id]);
         return rows[0];
     },
 
@@ -134,6 +139,13 @@ const HistoriasModel = {
             }
 
             await connection.commit();
+
+            // 5. Auto-Traducción Inteligente (Fuera de la transacción principal para no bloquear)
+            // Solo si el idioma original es español y es una creación nueva
+            if (locale === 'es') {
+                this._runAutoTranslation(historiaId, { titulo, descripcion }, ['en', 'ht']);
+            }
+
             return historiaId;
 
         } catch (error) {
@@ -228,6 +240,12 @@ const HistoriasModel = {
             }
 
             await connection.commit();
+
+            // 5. Auto-Traducción Inteligente en Update
+            if (locale === 'es') {
+                this._runAutoTranslation(id, { titulo, descripcion }, ['en', 'ht']);
+            }
+
             return true;
 
         } catch (error) {
@@ -331,6 +349,28 @@ const HistoriasModel = {
             throw error;
         } finally {
             connection.release();
+        }
+    },
+
+    /**
+     * Lógica interna para ejecutar traducciones en segundo plano
+     */
+    async _runAutoTranslation(historiaId, fields, targetLocales) {
+        try {
+            const translations = await TranslationService.translateBatch(fields, targetLocales);
+            
+            for (const locale of targetLocales) {
+                const { titulo, descripcion } = translations[locale];
+                await db.query(
+                    `INSERT INTO historia_i18n (historia_id, locale, titulo, descripcion) 
+                     VALUES (?, ?, ?, ?) 
+                     ON DUPLICATE KEY UPDATE titulo = VALUES(titulo), descripcion = VALUES(descripcion)`,
+                    [historiaId, locale, titulo, descripcion]
+                );
+            }
+            console.log(`[HistoriasModel] Auto-traducción completada para ID: ${historiaId}`);
+        } catch (error) {
+            console.error(`[HistoriasModel] Fallo en auto-traducción:`, error);
         }
     }
 };

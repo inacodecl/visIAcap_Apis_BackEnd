@@ -12,7 +12,9 @@ const HistoriasModel = require('../models/historias.model');
 const getHistory = async (req, res) => {
     try {
         const lang = req.query.lang || 'es';
-        const data = await HistoriasModel.findAll(lang);
+        const includeHidden = req.query.include_hidden === 'true' || req.query.all === 'true';
+        const data = await HistoriasModel.findAll(lang, includeHidden);
+        console.log(`DEBUG [getHistory]: Historias obtenidas: ${data.length} para idioma: ${lang} (includeHidden: ${includeHidden})`);
         res.json(data);
     } catch (error) {
         console.error('Error obteniendo historia:', error);
