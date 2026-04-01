@@ -13,6 +13,11 @@ const authRoutes = require('./routes/auth.routes');
 const proyectosRoutes = require('./routes/proyectos.routes');
 const metadataRoutes = require('./routes/metadata.routes');
 
+// Rutas del Futuro
+const noticiasFuturoRoutes = require('./routes/noticias-futuro.routes');
+const esteMesRoutes = require('./routes/este-mes.routes');
+const proximamenteRoutes = require('./routes/proximamente.routes');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -37,6 +42,11 @@ app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/entrevistas', entrevistasRoutes);
 app.use('/api/proyectos', proyectosRoutes);
 app.use('/api/metadata', metadataRoutes);
+
+// Rutas del Futuro
+app.use('/api/futuro/noticias', noticiasFuturoRoutes);
+app.use('/api/futuro/este-mes', esteMesRoutes);
+app.use('/api/futuro/proximamente', proximamenteRoutes);
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -63,11 +73,15 @@ app.listen(PORT, () => {
     console.log('================================================');
     console.log('');
     console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-    console.log('URLS TEMPORALES');
-    console.log(`• Usuarios: http://localhost:${PORT}/api/usuarios`)
-    console.log(`• Entrevistas: http://localhost:${PORT}/api/entrevistas`)
-    console.log(`• Proyectos: http://localhost:${PORT}/api/proyectos`)
-    console.log(`• Historia: http://localhost:${PORT}/api/history`)
-    console.log('')
+    console.log('--- PASADO / PRESENTE ---');
+    console.log(`• Usuarios:    http://localhost:${PORT}/api/usuarios`);
+    console.log(`• Entrevistas: http://localhost:${PORT}/api/entrevistas`);
+    console.log(`• Proyectos:   http://localhost:${PORT}/api/proyectos`);
+    console.log(`• Historia:    http://localhost:${PORT}/api/history`);
+    console.log('--- FUTURO ---');
+    console.log(`• Noticias:    http://localhost:${PORT}/api/futuro/noticias`);
+    console.log(`• Este Mes:    http://localhost:${PORT}/api/futuro/este-mes`);
+    console.log(`• Próxim.:     http://localhost:${PORT}/api/futuro/proximamente`);
+    console.log('');
     console.log('================================================');
 });
