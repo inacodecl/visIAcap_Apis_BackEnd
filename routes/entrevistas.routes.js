@@ -14,9 +14,8 @@ const { verifyToken, verifyRole } = require('../middlewares/auth.middleware');
 router.get('/', entrevistasController.getEntrevistas);
 
 // Rutas Admin (Protegidas)
-// Rutas Admin (Protegidas)
 router.use(verifyToken);
-router.use(verifyRole(['admin', 'superadmin']));
+router.use(verifyRole(['admin', 'super_admin']));
 
 router.get('/all', entrevistasController.getAllEntrevistas);
 

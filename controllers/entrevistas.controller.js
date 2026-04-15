@@ -13,8 +13,8 @@ exports.getEntrevistas = async (req, res) => {
     try {
         const lang = req.query.lang || 'es';
         const rows = await EntrevistasModel.findAllVisible(lang);
-        res.json(rows);
         console.log('DEBUG [getEntrevistas]: Entrevistas obtenidas correctamente', { count: rows.length, lang });
+        res.json(rows);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Error al obtener entrevistas' });
@@ -27,8 +27,8 @@ exports.getEntrevistas = async (req, res) => {
 exports.getAllEntrevistas = async (req, res) => {
     try {
         const rows = await EntrevistasModel.findAll();
-        res.json(rows);
         console.log('DEBUG [getAllEntrevistas]: Listado completo obtenido', { count: rows.length });
+        res.json(rows);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Error al obtener listado completo de entrevistas' });

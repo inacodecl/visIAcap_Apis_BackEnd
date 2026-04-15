@@ -12,7 +12,7 @@ const UsuariosModel = {
      * @param {string} email 
      */
     async findByEmail(email) {
-        const [rows] = await db.query('SELECT * FROM usuarios WHERE email = ?', [email]);
+        const [rows] = await db.query('SELECT id, email FROM usuarios WHERE email = ?', [email]);
         return rows[0];
     },
 

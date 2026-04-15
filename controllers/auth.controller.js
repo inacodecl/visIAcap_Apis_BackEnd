@@ -20,8 +20,11 @@ const login = async (req, res) => {
             return res.status(403).json({ message: 'Solo se permite el acceso con correo institucional (@inacapmail.cl o @inacap.cl)' });
         }
 
-        // Buscar usuario por email
-        const [rows] = await pool.query('SELECT * FROM usuarios WHERE email = ?', [email]);
+        // Buscar usuario por email (columnas explícitas, no SELECT *)
+        const [rows] = await pool.query(
+            'SELECT id, email, nombre, apellido, rol, is_active, password_hash FROM usuarios WHERE email = ?',
+            [email]
+        );
 
         if (rows.length === 0) {
             return res.status(401).json({ message: 'Credenciales inválidas' });
