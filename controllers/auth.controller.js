@@ -1,6 +1,7 @@
 const pool = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { registrar } = require('../services/activityLog.service');
 
 /**
  * Iniciar sesión
@@ -22,7 +23,7 @@ const login = async (req, res) => {
 
         // Buscar usuario por email (columnas explícitas, no SELECT *)
         const [rows] = await pool.query(
-            'SELECT id, email, nombre, apellido, rol, is_active, password_hash FROM usuarios WHERE email = ?',
+            'SELECT id, email, nombre, apellido, telefono, avatar_url, rol, is_active, password_hash, last_login_at, created_at FROM usuarios WHERE email = ?',
             [email]
         );
 
@@ -46,6 +47,9 @@ const login = async (req, res) => {
         // Actualizar último login
         await pool.query('UPDATE usuarios SET last_login_at = NOW() WHERE id = ?', [usuario.id]);
 
+        // Registrar actividad de login
+        registrar(usuario.id, 'login', 'sistema', null, `Inició sesión (${email})`);
+
         // Generar Token JWT
         const payload = {
             id: usuario.id,
@@ -65,7 +69,12 @@ const login = async (req, res) => {
                 email: usuario.email,
                 nombre: usuario.nombre,
                 apellido: usuario.apellido,
-                rol: usuario.rol
+                telefono: usuario.telefono,
+                avatar_url: usuario.avatar_url,
+                rol: usuario.rol,
+                is_active: usuario.is_active,
+                last_login_at: usuario.last_login_at,
+                created_at: usuario.created_at
             }
         });
 

@@ -5,6 +5,7 @@
 
 const bcrypt = require('bcryptjs');
 const UsuariosModel = require('../models/usuarios.model');
+const { registrar } = require('../services/activityLog.service');
 
 /**
  * Crear Usuario (Solo SuperAdmin)
@@ -32,6 +33,8 @@ const createUser = async (req, res) => {
         const newUserId = await UsuariosModel.create({
             nombre, apellido, email, password_hash: passwordHash, rol
         });
+
+        registrar(req.user?.id, 'crear', 'usuarios', newUserId, `Creó usuario: ${email}`);
 
         res.status(201).json({
             message: 'Usuario creado exitosamente',
@@ -121,6 +124,7 @@ const updateUserPartial = async (req, res) => {
             return res.status(404).json({ message: 'Usuario no encontrado o sin cambios' });
         }
 
+        registrar(req.user?.id, 'editar', 'usuarios', parseInt(id), `Actualizó estado/rol del usuario #${id}`);
         res.json({ message: 'Usuario actualizado exitosamente' });
 
     } catch (error) {
@@ -168,6 +172,7 @@ const deleteUser = async (req, res) => {
         const success = await UsuariosModel.delete(id);
 
         if (success) {
+            registrar(requestingUserId, 'eliminar', 'usuarios', parseInt(id), `Eliminó el usuario #${id}`);
             res.json({
                 ok: true,
                 message: 'Usuario eliminado correctamente'
@@ -189,10 +194,87 @@ const deleteUser = async (req, res) => {
     }
 };
 
+/**
+ * Obtener datos del perfil propio (cualquier rol autenticado)
+ * GET /api/usuarios/me
+ * Usa req.user.id del JWT para obtener datos completos.
+ */
+const getMyProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const [rows] = await require('../config/db').query(
+            `SELECT id, nombre, apellido, email, telefono, avatar_url, 
+                    rol, is_active, last_login_at, created_at, updated_at 
+             FROM usuarios WHERE id = ?`,
+            [userId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        res.json(rows[0]);
+    } catch (error) {
+        console.error('Error obteniendo perfil:', error);
+        res.status(500).json({ message: 'Error interno al obtener perfil' });
+    }
+};
+
+/**
+ * Actualizar perfil propio (cualquier rol autenticado)
+ * PUT /api/usuarios/me
+ * Solo permite actualizar: nombre, apellido, telefono, avatar_url
+ * NO permite cambiar: email, password, rol, is_active
+ */
+const updateMyProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { nombre, apellido, telefono, avatar_url } = req.body;
+
+        // Construir solo campos permitidos
+        const updates = {};
+        if (nombre !== undefined && nombre.trim()) updates.nombre = nombre.trim();
+        if (apellido !== undefined && apellido.trim()) updates.apellido = apellido.trim();
+        if (telefono !== undefined) updates.telefono = telefono.trim() || null;
+        if (avatar_url !== undefined) updates.avatar_url = avatar_url.trim() || null;
+
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ message: 'No se enviaron campos válidos para actualizar' });
+        }
+
+        const success = await UsuariosModel.update(userId, updates);
+
+        if (!success) {
+            return res.status(404).json({ message: 'Usuario no encontrado o sin cambios' });
+        }
+
+        // Devolver datos actualizados
+        const [rows] = await require('../config/db').query(
+            `SELECT id, nombre, apellido, email, telefono, avatar_url, 
+                    rol, is_active, last_login_at, created_at, updated_at 
+             FROM usuarios WHERE id = ?`,
+            [userId]
+        );
+
+        registrar(userId, 'perfil', 'perfil', userId, 'Actualizó su perfil personal');
+
+        res.json({
+            message: 'Perfil actualizado exitosamente',
+            user: rows[0]
+        });
+
+    } catch (error) {
+        console.error('Error actualizando perfil:', error);
+        res.status(500).json({ message: 'Error interno al actualizar perfil' });
+    }
+};
+
 module.exports = {
     createUser,
     getUsers,
     getUserById,
     updateUserPartial,
-    deleteUser
+    deleteUser,
+    getMyProfile,
+    updateMyProfile
 };

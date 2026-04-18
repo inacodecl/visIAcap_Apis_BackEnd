@@ -4,6 +4,7 @@
  */
 
 const NoticiasFuturoModel = require('../models/noticias-futuro.model');
+const { registrar } = require('../services/activityLog.service');
 
 const NoticiasFuturoController = {
 
@@ -58,6 +59,7 @@ const NoticiasFuturoController = {
             }
 
             const newId = await NoticiasFuturoModel.create(data, userId);
+            registrar(userId, 'crear', 'noticias_futuro', newId, `Creó noticia: "${data.titulo}"`);
             return res.status(201).json({ ok: true, data: { id: newId }, message: 'Noticia creada correctamente.' });
         } catch (error) {
             console.error('[NoticiasFuturoController] create:', error);
@@ -74,6 +76,7 @@ const NoticiasFuturoController = {
             if (!success) {
                 return res.status(404).json({ ok: false, error: { code: 'NOT_FOUND', message: 'Noticia no encontrada.', userMessage: 'Esta noticia no existe.' } });
             }
+            registrar(userId, 'editar', 'noticias_futuro', parseInt(id), `Editó noticia #${id}`);
             return res.json({ ok: true, message: 'Noticia actualizada correctamente.' });
         } catch (error) {
             console.error('[NoticiasFuturoController] update:', error);
@@ -89,6 +92,7 @@ const NoticiasFuturoController = {
             if (!success) {
                 return res.status(404).json({ ok: false, error: { code: 'NOT_FOUND', message: 'Noticia no encontrada.', userMessage: 'Esta noticia no existe.' } });
             }
+            registrar(req.user?.id, 'eliminar', 'noticias_futuro', parseInt(id), `Eliminó noticia #${id}`);
             return res.json({ ok: true, message: 'Noticia eliminada correctamente.' });
         } catch (error) {
             console.error('[NoticiasFuturoController] remove:', error);

@@ -12,6 +12,11 @@ const { validateRequiredFields } = require('../middlewares/validation.middleware
 // Todas las rutas requieren autenticación
 router.use(verifyToken);
 
+// ─── Perfil propio (Admin / SuperAdmin) ───
+// IMPORTANTE: /me debe ir ANTES de /:id para que Express no lo interprete como un ID
+router.get('/me', verifyRole(['admin', 'super_admin']), usuariosController.getMyProfile);
+router.put('/me', verifyRole(['admin', 'super_admin']), usuariosController.updateMyProfile);
+
 // Listar usuarios (Admin / SuperAdmin)
 router.get('/', verifyRole(['admin', 'super_admin']), usuariosController.getUsers);
 

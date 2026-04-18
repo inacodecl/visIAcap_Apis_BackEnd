@@ -4,6 +4,7 @@
  */
 
 const ProyectosModel = require('../models/proyectos.model');
+const { registrar } = require('../services/activityLog.service');
 
 const ProyectosController = {
 
@@ -81,6 +82,7 @@ const ProyectosController = {
             if (!data.tipo) data.tipo = 'presente';
 
             const newId = await ProyectosModel.create(data, userId);
+            registrar(userId, 'crear', 'proyectos', newId, `Creó el proyecto: "${data.titulo || data.slug}"`);
 
             return res.status(201).json({
                 message: 'Proyecto creado exitosamente.',
@@ -115,6 +117,7 @@ const ProyectosController = {
                 return res.status(404).json({ message: 'Proyecto no encontrado para actualizar.' });
             }
 
+            registrar(userId, 'editar', 'proyectos', parseInt(id), `Editó el proyecto #${id}`);
             return res.json({ message: 'Proyecto actualizado correctamente.' });
 
         } catch (error) {
@@ -137,6 +140,7 @@ const ProyectosController = {
                 return res.status(404).json({ message: 'Proyecto no encontrado para eliminar.' });
             }
 
+            registrar(req.user?.id, 'eliminar', 'proyectos', parseInt(id), `Eliminó el proyecto #${id}`);
             return res.json({ message: 'Proyecto eliminado correctamente.' });
 
         } catch (error) {

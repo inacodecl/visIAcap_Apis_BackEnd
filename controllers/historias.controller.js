@@ -5,6 +5,7 @@
  */
 
 const HistoriasModel = require('../models/historias.model');
+const { registrar } = require('../services/activityLog.service');
 
 /**
  * Obtener listado de historias (Timeline)
@@ -50,7 +51,7 @@ const createHistory = async (req, res) => {
     try {
         const userId = req.user.id; // Del token
         const historiaId = await HistoriasModel.create(req.body, userId);
-
+        registrar(userId, 'crear', 'historias', historiaId, `Creó un hito histórico: "${req.body.titulo || 'Sin título'}"`);
         res.status(201).json({ message: 'Hito creado exitosamente', id: historiaId });
 
     } catch (error) {
@@ -73,6 +74,7 @@ const updateHistoryFull = async (req, res) => {
             return res.status(404).json({ message: 'Hito no encontrado' });
         }
 
+        registrar(userId, 'editar', 'historias', parseInt(id), `Editó el hito histórico #${id}`);
         res.json({ message: 'Hito actualizado completamente' });
 
     } catch (error) {
@@ -95,6 +97,7 @@ const updateHistoryPartial = async (req, res) => {
         // Si el ID no existe, podría no detectarse fácilmente sin una query previa,
         // pero por simplicidad asumimos éxito si no excepciona.
 
+        registrar(userId, 'editar', 'historias', parseInt(id), `Editó parcialmente el hito #${id}`);
         res.json({ message: 'Hito actualizado parcialmente' });
 
     } catch (error) {
@@ -115,6 +118,7 @@ const deleteHistory = async (req, res) => {
             return res.status(404).json({ message: 'Hito no encontrado' });
         }
 
+        registrar(req.user?.id, 'eliminar', 'historias', parseInt(id), `Eliminó el hito histórico #${id}`);
         res.json({ message: 'Hito eliminado exitosamente' });
 
     } catch (error) {

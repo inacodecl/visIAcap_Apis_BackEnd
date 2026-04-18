@@ -5,6 +5,7 @@
  */
 
 const EntrevistasModel = require('../models/entrevistas.model');
+const { registrar } = require('../services/activityLog.service');
 
 /**
  * Obtener lista de entrevistas públicas (solo visibles)
@@ -45,6 +46,7 @@ exports.createEntrevista = async (req, res) => {
 
         // La validación de campos obligatorios se delega al middleware 'validation.middleware'
         const id = await EntrevistasModel.create(req.body, userId);
+        registrar(userId, 'crear', 'entrevistas', id, `Creó la entrevista: "${req.body.nombre || 'Sin título'}"`);
         res.status(201).json({ id, message: 'Entrevista creada correctamente' });
     } catch (error) {
         console.error(error);
@@ -63,6 +65,7 @@ exports.updateEntrevista = async (req, res) => {
         if (!success) {
             return res.status(404).json({ message: 'Entrevista no encontrada' });
         }
+        registrar(userId, 'editar', 'entrevistas', parseInt(id), `Editó la entrevista #${id}`);
         res.json({ message: 'Entrevista actualizada correctamente' });
     } catch (error) {
         console.error(error);
@@ -87,6 +90,7 @@ exports.patchEntrevista = async (req, res) => {
             // Aquí simplificamos para cumplir contrato.
             return res.status(404).json({ message: 'Entrevista no encontrada o sin cambios válidos' });
         }
+        registrar(userId, 'editar', 'entrevistas', parseInt(id), `Editó parcialmente la entrevista #${id}`);
         res.json({ message: 'Entrevista actualizada parcialmente' });
     } catch (error) {
         console.error(error);
@@ -104,6 +108,7 @@ exports.deleteEntrevista = async (req, res) => {
         if (!success) {
             return res.status(404).json({ message: 'Entrevista no encontrada' });
         }
+        registrar(req.user?.id, 'eliminar', 'entrevistas', parseInt(id), `Eliminó la entrevista #${id}`);
         res.json({ message: 'Entrevista eliminada correctamente' });
     } catch (error) {
         console.error(error);

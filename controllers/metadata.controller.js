@@ -1,5 +1,6 @@
 const TagsModel = require('../models/tags.model');
 const CategoriasModel = require('../models/categorias.model');
+const { registrar } = require('../services/activityLog.service');
 
 const MetadataController = {
 
@@ -45,6 +46,7 @@ const MetadataController = {
             }
             const userId = req.user ? req.user.id : null;
             const id = await TagsModel.create(slug, nombre_es, nombre_en || nombre_es, userId);
+            registrar(userId, 'crear', 'tags', id, `Creó el tag: "${nombre_es}"`);
             return res.status(201).json({ message: 'Tag creado', id });
         } catch (error) {
             console.error('Error createTag:', error);
@@ -66,6 +68,7 @@ const MetadataController = {
             if (!success) {
                 return res.status(404).json({ message: 'Tag no encontrado' });
             }
+            registrar(req.user?.id, 'eliminar', 'tags', parseInt(id), `Eliminó el tag #${id}`);
             return res.json({ message: 'Tag eliminado' });
         } catch (error) {
             console.error('Error deleteTag:', error);
@@ -85,6 +88,7 @@ const MetadataController = {
             }
             const userId = req.user ? req.user.id : null;
             const id = await CategoriasModel.create(slug, nombre_es, nombre_en || nombre_es, userId);
+            registrar(userId, 'crear', 'categorias', id, `Creó la categoría: "${nombre_es}"`);
             return res.status(201).json({ message: 'Categoría creada', id });
         } catch (error) {
             console.error('Error createCategoria:', error);
@@ -106,6 +110,7 @@ const MetadataController = {
             if (!success) {
                 return res.status(404).json({ message: 'Categoría no encontrada' });
             }
+            registrar(req.user?.id, 'eliminar', 'categorias', parseInt(id), `Eliminó la categoría #${id}`);
             return res.json({ message: 'Categoría eliminada' });
         } catch (error) {
             console.error('Error deleteCategoria:', error);

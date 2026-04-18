@@ -18,6 +18,9 @@ const noticiasFuturoRoutes = require('./routes/noticias-futuro.routes');
 const esteMesRoutes = require('./routes/este-mes.routes');
 const proximamenteRoutes = require('./routes/proximamente.routes');
 
+// Actividad / Auditoría
+const actividadRoutes = require('./routes/actividad.routes');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -42,6 +45,7 @@ app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/entrevistas', entrevistasRoutes);
 app.use('/api/proyectos', proyectosRoutes);
 app.use('/api/metadata', metadataRoutes);
+app.use('/api/actividad', actividadRoutes);
 
 // Rutas del Futuro
 app.use('/api/futuro/noticias', noticiasFuturoRoutes);

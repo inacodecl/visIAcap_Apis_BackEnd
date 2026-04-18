@@ -4,6 +4,7 @@
  */
 
 const EsteMesModel = require('../models/este-mes.model');
+const { registrar } = require('../services/activityLog.service');
 
 const EsteMesController = {
 
@@ -58,6 +59,7 @@ const EsteMesController = {
             }
 
             const newId = await EsteMesModel.create(data, userId);
+            registrar(userId, 'crear', 'este_mes', newId, `Creó evento Este Mes: "${data.titulo}"`);
             return res.status(201).json({ ok: true, data: { id: newId }, message: 'Evento creado correctamente.' });
         } catch (error) {
             console.error('[EsteMesController] create:', error);
@@ -74,6 +76,7 @@ const EsteMesController = {
             if (!success) {
                 return res.status(404).json({ ok: false, error: { code: 'NOT_FOUND', message: 'Evento no encontrado.', userMessage: 'Este evento no existe.' } });
             }
+            registrar(userId, 'editar', 'este_mes', parseInt(id), `Editó evento Este Mes #${id}`);
             return res.json({ ok: true, message: 'Evento actualizado correctamente.' });
         } catch (error) {
             console.error('[EsteMesController] update:', error);
@@ -89,6 +92,7 @@ const EsteMesController = {
             if (!success) {
                 return res.status(404).json({ ok: false, error: { code: 'NOT_FOUND', message: 'Evento no encontrado.', userMessage: 'Este evento no existe.' } });
             }
+            registrar(req.user?.id, 'eliminar', 'este_mes', parseInt(id), `Eliminó evento Este Mes #${id}`);
             return res.json({ ok: true, message: 'Evento eliminado correctamente.' });
         } catch (error) {
             console.error('[EsteMesController] remove:', error);
