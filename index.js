@@ -16,7 +16,6 @@ const metadataRoutes = require('./routes/metadata.routes');
 // Rutas del Futuro
 const noticiasFuturoRoutes = require('./routes/noticias-futuro.routes');
 const esteMesRoutes = require('./routes/este-mes.routes');
-const proximamenteRoutes = require('./routes/proximamente.routes');
 
 // Actividad / Auditoría
 const actividadRoutes = require('./routes/actividad.routes');
@@ -50,7 +49,6 @@ app.use('/api/actividad', actividadRoutes);
 // Rutas del Futuro
 app.use('/api/futuro/noticias', noticiasFuturoRoutes);
 app.use('/api/futuro/este-mes', esteMesRoutes);
-app.use('/api/futuro/proximamente', proximamenteRoutes);
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -85,7 +83,6 @@ app.listen(PORT, () => {
     console.log('--- FUTURO ---');
     console.log(`• Noticias:    http://localhost:${PORT}/api/futuro/noticias`);
     console.log(`• Este Mes:    http://localhost:${PORT}/api/futuro/este-mes`);
-    console.log(`• Próxim.:     http://localhost:${PORT}/api/futuro/proximamente`);
     console.log('');
     console.log('================================================');
 });
