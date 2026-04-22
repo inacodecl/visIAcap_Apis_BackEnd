@@ -91,7 +91,13 @@ exports.patchEntrevista = async (req, res) => {
             // Aquí simplificamos para cumplir contrato.
             return res.status(404).json({ message: 'Entrevista no encontrada o sin cambios válidos' });
         }
-        const entrevistaInfo = req.body.titulo || req.body.entrevistado || id;
+        // Obtener info previa para el log si no viene en el body
+        let entrevistaInfo = req.body.titulo || req.body.entrevistado;
+        if (!entrevistaInfo) {
+            const entPre = await EntrevistasModel.findById(id);
+            entrevistaInfo = entPre ? (entPre.titulo || entPre.entrevistado) : id;
+        }
+
         registrar(userId, 'editar', 'entrevistas', parseInt(id), `Editó parcialmente la entrevista: "${entrevistaInfo}"`);
         res.json({ message: 'Entrevista actualizada parcialmente' });
     } catch (error) {

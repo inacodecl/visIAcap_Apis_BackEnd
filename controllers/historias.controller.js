@@ -92,13 +92,15 @@ const updateHistoryPartial = async (req, res) => {
         const { id } = req.params;
         const userId = req.user.id;
 
+        // Obtener info antes de editar para el log si no viene en el body
+        let hitoInfo = req.body.anio || req.body.titulo;
+        if (!hitoInfo) {
+            const hitoPre = await HistoriasModel.findById(id, 'es');
+            hitoInfo = hitoPre ? (hitoPre.anio || hitoPre.titulo) : id;
+        }
+
         const success = await HistoriasModel.patch(id, req.body, userId);
 
-        // El PATCH simple del modelo devuelve true si todo fue bien. 
-        // Si el ID no existe, podría no detectarse fácilmente sin una query previa,
-        // pero por simplicidad asumimos éxito si no excepciona.
-
-        const hitoInfo = req.body.anio || req.body.titulo || id;
         registrar(userId, 'editar', 'historias', parseInt(id), `Editó parcialmente el hito: ${hitoInfo}`);
         res.json({ message: 'Hito actualizado parcialmente' });
 
@@ -113,6 +115,9 @@ const updateHistoryPartial = async (req, res) => {
  */
 const deleteHistory = async (req, res) => {
     try {
+        const { id } = req.params;
+        const userId = req.user?.id;
+
         // Obtener info antes de eliminar para el log
         const hitoPre = await HistoriasModel.findById(id, 'es');
         const hitoInfo = hitoPre ? (hitoPre.anio || hitoPre.titulo) : id;
@@ -123,7 +128,7 @@ const deleteHistory = async (req, res) => {
             return res.status(404).json({ message: 'Hito no encontrado' });
         }
 
-        registrar(req.user?.id, 'eliminar', 'historias', parseInt(id), `Eliminó el hito histórico: ${hitoInfo}`);
+        registrar(userId, 'eliminar', 'historias', parseInt(id), `Eliminó el hito histórico: ${hitoInfo}`);
         res.json({ message: 'Hito eliminado exitosamente' });
 
     } catch (error) {

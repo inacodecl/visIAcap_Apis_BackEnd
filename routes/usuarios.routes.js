@@ -16,6 +16,7 @@ router.use(verifyToken);
 // IMPORTANTE: /me debe ir ANTES de /:id para que Express no lo interprete como un ID
 router.get('/me', verifyRole(['admin', 'super_admin']), usuariosController.getMyProfile);
 router.put('/me', verifyRole(['admin', 'super_admin']), usuariosController.updateMyProfile);
+router.post('/change-password', verifyRole(['admin', 'super_admin']), usuariosController.changePassword);
 
 // Listar usuarios (Admin / SuperAdmin)
 router.get('/', verifyRole(['admin', 'super_admin']), usuariosController.getUsers);

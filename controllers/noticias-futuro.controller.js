@@ -76,7 +76,13 @@ const NoticiasFuturoController = {
             if (!success) {
                 return res.status(404).json({ ok: false, error: { code: 'NOT_FOUND', message: 'Noticia no encontrada.', userMessage: 'Esta noticia no existe.' } });
             }
-            const noticiaInfo = req.body.titulo || id;
+            // Obtener info previa para el log si no viene el título en el body
+            let noticiaInfo = req.body.titulo;
+            if (!noticiaInfo) {
+                const notPre = await NoticiasFuturoModel.findById(id, 'es');
+                noticiaInfo = notPre ? notPre.titulo : id;
+            }
+
             registrar(userId, 'editar', 'noticias_futuro', parseInt(id), `Editó noticia: "${noticiaInfo}"`);
             return res.json({ ok: true, message: 'Noticia actualizada correctamente.' });
         } catch (error) {

@@ -108,8 +108,12 @@ const ProyectosController = {
             const userId = req.user.id;
             const data = req.body;
 
-            // Validaciones básicas de existencia de datos a actualizar
-
+            // Obtener info previa si no viene el título en el body (para el log)
+            let proyectoInfo = data.titulo;
+            if (!proyectoInfo) {
+                const proyectoPre = await ProyectosModel.findById(id, 'es');
+                proyectoInfo = proyectoPre ? proyectoPre.titulo : id;
+            }
 
             const success = await ProyectosModel.updateFull(id, data, userId);
 
@@ -117,7 +121,6 @@ const ProyectosController = {
                 return res.status(404).json({ message: 'Proyecto no encontrado para actualizar.' });
             }
 
-            const proyectoInfo = data.titulo || id;
             registrar(userId, 'editar', 'proyectos', parseInt(id), `Editó el proyecto: "${proyectoInfo}"`);
             return res.json({ message: 'Proyecto actualizado correctamente.' });
 
@@ -133,6 +136,9 @@ const ProyectosController = {
      */
     async deleteProyecto(req, res) {
         try {
+            const { id } = req.params;
+            const userId = req.user?.id;
+
             // Obtener info antes de eliminar para el log
             const proyectoPre = await ProyectosModel.findById(id, 'es');
             const proyectoInfo = proyectoPre ? proyectoPre.titulo : id;
@@ -143,7 +149,7 @@ const ProyectosController = {
                 return res.status(404).json({ message: 'Proyecto no encontrado para eliminar.' });
             }
 
-            registrar(req.user?.id, 'eliminar', 'proyectos', parseInt(id), `Eliminó el proyecto: "${proyectoInfo}"`);
+            registrar(userId, 'eliminar', 'proyectos', parseInt(id), `Eliminó el proyecto: "${proyectoInfo}"`);
             return res.json({ message: 'Proyecto eliminado correctamente.' });
 
         } catch (error) {

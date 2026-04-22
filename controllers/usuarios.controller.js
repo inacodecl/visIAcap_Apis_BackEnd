@@ -34,7 +34,7 @@ const createUser = async (req, res) => {
             nombre, apellido, email, password_hash: passwordHash, rol, telefono
         });
 
-        registrar(req.user?.id, 'crear', 'usuarios', newUserId, `Creó usuario: ${email}`);
+        registrar(req.user?.id, 'crear', 'usuarios', newUserId, `Creó usuario: ${nombre} ${apellido} (${email})`);
 
         res.status(201).json({
             message: 'Usuario creado exitosamente',
@@ -134,7 +134,16 @@ const updateUserPartial = async (req, res) => {
             return res.status(404).json({ message: 'Usuario no encontrado o sin cambios' });
         }
 
-        registrar(req.user?.id, 'editar', 'usuarios', parseInt(id), `Modificó datos del usuario #${id} (${updates.rol || 'sin cambio de rol'})`);
+        // Obtener nombre del usuario para el log si no se editó en esta petición
+        let targetName = "";
+        if (updates.nombre && updates.apellido) {
+            targetName = `${updates.nombre} ${updates.apellido}`;
+        } else {
+            const userPre = await UsuariosModel.findById(id);
+            targetName = userPre ? `${userPre.nombre} ${userPre.apellido}` : email || id;
+        }
+
+        registrar(req.user?.id, 'editar', 'usuarios', parseInt(id), `Modificó datos del usuario: ${targetName} (${updates.rol || 'sin cambio de rol'})`);
         res.json({ message: 'Usuario actualizado exitosamente' });
 
     } catch (error) {
@@ -182,7 +191,7 @@ const deleteUser = async (req, res) => {
         const success = await UsuariosModel.delete(id);
 
         if (success) {
-            registrar(requestingUserId, 'eliminar', 'usuarios', parseInt(id), `Eliminó el usuario #${id}`);
+            registrar(requestingUserId, 'eliminar', 'usuarios', parseInt(id), `Eliminó el usuario: ${user.nombre} ${user.apellido} (${user.email})`);
             res.json({
                 ok: true,
                 message: 'Usuario eliminado correctamente'
@@ -279,6 +288,54 @@ const updateMyProfile = async (req, res) => {
     }
 };
 
+/**
+ * Cambiar contraseña propia
+ * POST /api/usuarios/change-password
+ */
+const changePassword = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ message: 'Contraseña actual y nueva son obligatorias' });
+        }
+
+        // 1. Obtener usuario con hash de contraseña
+        const [users] = await require('../config/db').query(
+            'SELECT password_hash FROM usuarios WHERE id = ?',
+            [userId]
+        );
+
+        if (users.length === 0) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        const user = users[0];
+
+        // 2. Verificar contraseña actual
+        const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
+        if (!isMatch) {
+            return res.status(401).json({ message: 'La contraseña actual es incorrecta' });
+        }
+
+        // 3. Encriptar nueva contraseña
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(newPassword, salt);
+
+        // 4. Actualizar en BD
+        await UsuariosModel.update(userId, { password_hash: passwordHash });
+
+        registrar(userId, 'seguridad', 'usuarios', userId, 'Cambió su contraseña de acceso');
+
+        res.json({ message: 'Contraseña actualizada correctamente' });
+
+    } catch (error) {
+        console.error('Error cambiando contraseña:', error);
+        res.status(500).json({ message: 'Error interno al cambiar contraseña' });
+    }
+};
+
 module.exports = {
     createUser,
     getUsers,
@@ -286,5 +343,6 @@ module.exports = {
     updateUserPartial,
     deleteUser,
     getMyProfile,
-    updateMyProfile
+    updateMyProfile,
+    changePassword
 };
