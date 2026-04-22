@@ -1,0 +1,52 @@
+name: Deploy VisIacap Backend
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore: 
+      - 'README.md'
+      - '.gitignore'
+      - '.github/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚚 Checkout código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # Necesario para comparar con el commit anterior
+
+      - name: 🔍 Detectar nuevas dependencias
+        id: check_package
+        run: |
+          if git diff --name-only HEAD^ HEAD | grep -q "package.json"; then
+            echo "CHANGED=true" >> $GITHUB_OUTPUT
+          else
+            echo "CHANGED=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 🚀 Subir al Servidor
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./ 
+          server-dir: /apibackend.inacapsmart.cl/ 
+          exclude: |
+            **/.git*
+            **/node_modules/**
+            **/.env
+            .htaccess
+            stderr.log
+          state-name: .ftp-deploy-sync-state-backend.json
+
+      - name: ⚠️ AVISO DE NPM INSTALL
+        if: steps.check_package.outputs.CHANGED == 'true'
+        run: |
+          echo "********************************************************"
+          echo "🚨 ATENCIÓN: SE DETECTARON CAMBIOS EN PACKAGE.JSON"
+          echo "RECUERDA ENTRAR A CPANEL Y DARLE A 'RUN NPM INSTALL'"
+          echo "********************************************************"
