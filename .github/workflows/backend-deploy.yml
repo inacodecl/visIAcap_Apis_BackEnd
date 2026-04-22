@@ -36,6 +36,8 @@ jobs:
           local-dir: ./ 
           server-dir: /apibackend.inacapsmart.cl/ 
           exclude: |
+            .git/**
+            .git/
             **/.git*
             **/node_modules/**
             **/.env

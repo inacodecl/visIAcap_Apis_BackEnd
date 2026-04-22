@@ -74,7 +74,8 @@ const updateHistoryFull = async (req, res) => {
             return res.status(404).json({ message: 'Hito no encontrado' });
         }
 
-        registrar(userId, 'editar', 'historias', parseInt(id), `Editó el hito histórico #${id}`);
+        const hitoInfo = req.body.anio || req.body.titulo || id;
+        registrar(userId, 'editar', 'historias', parseInt(id), `Editó el hito histórico: ${hitoInfo}`);
         res.json({ message: 'Hito actualizado completamente' });
 
     } catch (error) {
@@ -97,7 +98,8 @@ const updateHistoryPartial = async (req, res) => {
         // Si el ID no existe, podría no detectarse fácilmente sin una query previa,
         // pero por simplicidad asumimos éxito si no excepciona.
 
-        registrar(userId, 'editar', 'historias', parseInt(id), `Editó parcialmente el hito #${id}`);
+        const hitoInfo = req.body.anio || req.body.titulo || id;
+        registrar(userId, 'editar', 'historias', parseInt(id), `Editó parcialmente el hito: ${hitoInfo}`);
         res.json({ message: 'Hito actualizado parcialmente' });
 
     } catch (error) {
@@ -111,14 +113,17 @@ const updateHistoryPartial = async (req, res) => {
  */
 const deleteHistory = async (req, res) => {
     try {
-        const { id } = req.params;
+        // Obtener info antes de eliminar para el log
+        const hitoPre = await HistoriasModel.findById(id, 'es');
+        const hitoInfo = hitoPre ? (hitoPre.anio || hitoPre.titulo) : id;
+
         const success = await HistoriasModel.delete(id);
 
         if (!success) {
             return res.status(404).json({ message: 'Hito no encontrado' });
         }
 
-        registrar(req.user?.id, 'eliminar', 'historias', parseInt(id), `Eliminó el hito histórico #${id}`);
+        registrar(req.user?.id, 'eliminar', 'historias', parseInt(id), `Eliminó el hito histórico: ${hitoInfo}`);
         res.json({ message: 'Hito eliminado exitosamente' });
 
     } catch (error) {

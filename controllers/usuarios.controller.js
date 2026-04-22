@@ -12,7 +12,7 @@ const { registrar } = require('../services/activityLog.service');
  */
 const createUser = async (req, res) => {
     try {
-        const { nombre, apellido, email, password, rol = 'viewer' } = req.body;
+        const { nombre, apellido, email, password, rol = 'viewer', telefono } = req.body;
 
         // Validar dominio institucional
         if (!email.endsWith('@inacapmail.cl') && !email.endsWith('@inacap.cl')) {
@@ -31,7 +31,7 @@ const createUser = async (req, res) => {
 
         // Crear
         const newUserId = await UsuariosModel.create({
-            nombre, apellido, email, password_hash: passwordHash, rol
+            nombre, apellido, email, password_hash: passwordHash, rol, telefono
         });
 
         registrar(req.user?.id, 'crear', 'usuarios', newUserId, `Creó usuario: ${email}`);
@@ -104,18 +104,28 @@ const getUserById = async (req, res) => {
 const updateUserPartial = async (req, res) => {
     try {
         const { id } = req.params;
-        const { rol, is_active } = req.body;
+        const { rol, is_active, nombre, apellido, telefono, password } = req.body;
 
         // Construir objeto de updates solo con lo definido
         const updates = {};
         if (rol !== undefined) updates.rol = rol;
+        if (nombre !== undefined) updates.nombre = nombre.trim();
+        if (apellido !== undefined) updates.apellido = apellido.trim();
+        if (telefono !== undefined) updates.telefono = telefono.trim() || null;
+
         if (is_active !== undefined) {
             // Convertir a 1 (true) o 0 (false) para asegurar compatibilidad con TINYINT
             updates.is_active = (String(is_active) === 'true' || is_active === 1 || is_active === true) ? 1 : 0;
         }
 
+        // Si se envía contraseña, encriptarla
+        if (password && password.trim().length >= 6) {
+            const salt = await bcrypt.genSalt(10);
+            updates.password_hash = await bcrypt.hash(password, salt);
+        }
+
         if (Object.keys(updates).length === 0) {
-            return res.status(400).json({ message: 'No se enviaron campos para actualizar (rol, is_active)' });
+            return res.status(400).json({ message: 'No se enviaron campos válidos para actualizar' });
         }
 
         const success = await UsuariosModel.update(id, updates);
@@ -124,7 +134,7 @@ const updateUserPartial = async (req, res) => {
             return res.status(404).json({ message: 'Usuario no encontrado o sin cambios' });
         }
 
-        registrar(req.user?.id, 'editar', 'usuarios', parseInt(id), `Actualizó estado/rol del usuario #${id}`);
+        registrar(req.user?.id, 'editar', 'usuarios', parseInt(id), `Modificó datos del usuario #${id} (${updates.rol || 'sin cambio de rol'})`);
         res.json({ message: 'Usuario actualizado exitosamente' });
 
     } catch (error) {

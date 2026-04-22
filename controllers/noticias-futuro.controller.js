@@ -76,7 +76,8 @@ const NoticiasFuturoController = {
             if (!success) {
                 return res.status(404).json({ ok: false, error: { code: 'NOT_FOUND', message: 'Noticia no encontrada.', userMessage: 'Esta noticia no existe.' } });
             }
-            registrar(userId, 'editar', 'noticias_futuro', parseInt(id), `Editó noticia #${id}`);
+            const noticiaInfo = req.body.titulo || id;
+            registrar(userId, 'editar', 'noticias_futuro', parseInt(id), `Editó noticia: "${noticiaInfo}"`);
             return res.json({ ok: true, message: 'Noticia actualizada correctamente.' });
         } catch (error) {
             console.error('[NoticiasFuturoController] update:', error);
@@ -88,11 +89,15 @@ const NoticiasFuturoController = {
     async remove(req, res) {
         try {
             const { id } = req.params;
+            // Obtener info antes de eliminar para el log
+            const noticiaPre = await NoticiasFuturoModel.findById(id, 'es');
+            const noticiaInfo = noticiaPre ? noticiaPre.titulo : id;
+
             const success = await NoticiasFuturoModel.delete(id);
             if (!success) {
                 return res.status(404).json({ ok: false, error: { code: 'NOT_FOUND', message: 'Noticia no encontrada.', userMessage: 'Esta noticia no existe.' } });
             }
-            registrar(req.user?.id, 'eliminar', 'noticias_futuro', parseInt(id), `Eliminó noticia #${id}`);
+            registrar(req.user?.id, 'eliminar', 'noticias_futuro', parseInt(id), `Eliminó noticia: "${noticiaInfo}"`);
             return res.json({ ok: true, message: 'Noticia eliminada correctamente.' });
         } catch (error) {
             console.error('[NoticiasFuturoController] remove:', error);

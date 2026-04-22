@@ -21,10 +21,10 @@ const UsuariosModel = {
      * @param {Object} userData - Datos { nombre, apellido, email, password_hash, rol }
      */
     async create(userData) {
-        const { nombre, apellido, email, password_hash, rol } = userData;
+        const { nombre, apellido, email, password_hash, rol, telefono } = userData;
         const [result] = await db.query(
-            `INSERT INTO usuarios (nombre, apellido, email, password_hash, rol) VALUES (?, ?, ?, ?, ?)`,
-            [nombre, apellido, email, password_hash, rol]
+            `INSERT INTO usuarios (nombre, apellido, email, password_hash, rol, telefono) VALUES (?, ?, ?, ?, ?, ?)`,
+            [nombre, apellido, email, password_hash, rol, telefono || null]
         );
         return result.insertId;
     },

@@ -41,6 +41,15 @@ const EntrevistasModel = {
     },
 
     /**
+     * Obtiene una entrevista por ID
+     */
+    async findById(id) {
+        const query = 'SELECT * FROM entrevistas WHERE id = ?';
+        const [rows] = await db.query(query, [id]);
+        return rows[0];
+    },
+
+    /**
      * Crea una nueva entrevista
      * @param {Object} data - Objeto con los datos de la entrevista
      * @param {number} userId - ID del usuario creador (Golden Standard)

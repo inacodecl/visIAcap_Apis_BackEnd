@@ -65,7 +65,8 @@ exports.updateEntrevista = async (req, res) => {
         if (!success) {
             return res.status(404).json({ message: 'Entrevista no encontrada' });
         }
-        registrar(userId, 'editar', 'entrevistas', parseInt(id), `Editó la entrevista #${id}`);
+        const entrevistaInfo = req.body.titulo || req.body.entrevistado || id;
+        registrar(userId, 'editar', 'entrevistas', parseInt(id), `Editó la entrevista: "${entrevistaInfo}"`);
         res.json({ message: 'Entrevista actualizada correctamente' });
     } catch (error) {
         console.error(error);
@@ -90,7 +91,8 @@ exports.patchEntrevista = async (req, res) => {
             // Aquí simplificamos para cumplir contrato.
             return res.status(404).json({ message: 'Entrevista no encontrada o sin cambios válidos' });
         }
-        registrar(userId, 'editar', 'entrevistas', parseInt(id), `Editó parcialmente la entrevista #${id}`);
+        const entrevistaInfo = req.body.titulo || req.body.entrevistado || id;
+        registrar(userId, 'editar', 'entrevistas', parseInt(id), `Editó parcialmente la entrevista: "${entrevistaInfo}"`);
         res.json({ message: 'Entrevista actualizada parcialmente' });
     } catch (error) {
         console.error(error);
@@ -104,11 +106,15 @@ exports.patchEntrevista = async (req, res) => {
 exports.deleteEntrevista = async (req, res) => {
     const { id } = req.params;
     try {
+        // Obtener info antes de eliminar para el log
+        const entrevistaPre = await EntrevistasModel.findById(id);
+        const entrevistaInfo = entrevistaPre ? (entrevistaPre.titulo || entrevistaPre.entrevistado) : id;
+
         const success = await EntrevistasModel.delete(id);
         if (!success) {
             return res.status(404).json({ message: 'Entrevista no encontrada' });
         }
-        registrar(req.user?.id, 'eliminar', 'entrevistas', parseInt(id), `Eliminó la entrevista #${id}`);
+        registrar(req.user?.id, 'eliminar', 'entrevistas', parseInt(id), `Eliminó la entrevista: "${entrevistaInfo}"`);
         res.json({ message: 'Entrevista eliminada correctamente' });
     } catch (error) {
         console.error(error);

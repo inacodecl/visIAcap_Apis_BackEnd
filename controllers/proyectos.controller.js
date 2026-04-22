@@ -117,7 +117,8 @@ const ProyectosController = {
                 return res.status(404).json({ message: 'Proyecto no encontrado para actualizar.' });
             }
 
-            registrar(userId, 'editar', 'proyectos', parseInt(id), `Editó el proyecto #${id}`);
+            const proyectoInfo = data.titulo || id;
+            registrar(userId, 'editar', 'proyectos', parseInt(id), `Editó el proyecto: "${proyectoInfo}"`);
             return res.json({ message: 'Proyecto actualizado correctamente.' });
 
         } catch (error) {
@@ -132,7 +133,9 @@ const ProyectosController = {
      */
     async deleteProyecto(req, res) {
         try {
-            const { id } = req.params;
+            // Obtener info antes de eliminar para el log
+            const proyectoPre = await ProyectosModel.findById(id, 'es');
+            const proyectoInfo = proyectoPre ? proyectoPre.titulo : id;
 
             const success = await ProyectosModel.delete(id);
 
@@ -140,7 +143,7 @@ const ProyectosController = {
                 return res.status(404).json({ message: 'Proyecto no encontrado para eliminar.' });
             }
 
-            registrar(req.user?.id, 'eliminar', 'proyectos', parseInt(id), `Eliminó el proyecto #${id}`);
+            registrar(req.user?.id, 'eliminar', 'proyectos', parseInt(id), `Eliminó el proyecto: "${proyectoInfo}"`);
             return res.json({ message: 'Proyecto eliminado correctamente.' });
 
         } catch (error) {
