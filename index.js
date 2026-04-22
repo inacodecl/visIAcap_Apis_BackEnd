@@ -17,7 +17,7 @@ const metadataRoutes = require('./routes/metadata.routes');
 const noticiasFuturoRoutes = require('./routes/noticias-futuro.routes');
 const esteMesRoutes = require('./routes/este-mes.routes');
 
-// Actividad / Auditoría
+// Actividad
 const actividadRoutes = require('./routes/actividad.routes');
 
 const app = express();
@@ -29,7 +29,7 @@ app.use((req, res, next) => {
     console.log(`[REQUEST] ${req.method} ${req.url}`);
     next();
 });
-app.use(morgan('dev')); // Logger
+app.use(morgan('dev'));
 app.use(cors({
     origin: [
         'http://localhost:8100',
@@ -77,9 +77,9 @@ db.getConnection()
 
 // Iniciar servidor
 app.listen(PORT, () => {
-    console.log('================================================');
+    console.log('==========================================================');
     console.log('');
     console.log(`🚀 Servidor corriendo en http://apibackend.inacapsmart.cl/`);
     console.log('');
-    console.log('================================================');
+    console.log('==========================================================');
 });

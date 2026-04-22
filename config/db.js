@@ -10,8 +10,8 @@ const pool = mysql.createPool({
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
-    timezone: 'Z', // UTC para evitar problemas de fechas
-    dateStrings: true // Recuperar fechas como strings para evitar conversiones automáticas no deseadas
+    timezone: 'Z', 
+    dateStrings: true
 });
 
 module.exports = pool;
