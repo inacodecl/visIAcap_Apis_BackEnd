@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const helmet = require('helmet');
+const path = require('path');
 const db = require('./config/db');
 
 // Importar rutas (Nomenclatura Plural Estandarizada)
@@ -19,6 +20,7 @@ const esteMesRoutes = require('./routes/este-mes.routes');
 
 // Actividad
 const actividadRoutes = require('./routes/actividad.routes');
+const uploadRoutes = require('./routes/upload.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -54,6 +56,12 @@ app.use('/api/actividad', actividadRoutes);
 // Rutas del Futuro
 app.use('/api/futuro/noticias', noticiasFuturoRoutes);
 app.use('/api/futuro/este-mes', esteMesRoutes);
+app.use('/api/upload', uploadRoutes);
+
+// Servir archivos estáticos (imágenes subidas) con caché de 30 días
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads'), {
+    maxAge: '30d'
+}));
 
 // Ruta de prueba
 app.get('/', (req, res) => {
