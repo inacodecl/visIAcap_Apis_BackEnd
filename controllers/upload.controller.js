@@ -1,6 +1,6 @@
 const imageService = require('../services/image.service');
 
-const uploadHitoImage = async (req, res) => {
+const uploadImage = async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({
@@ -9,8 +9,10 @@ const uploadHitoImage = async (req, res) => {
             });
         }
 
-        // Llamar al servicio para optimizar y guardar en la carpeta 'hitos'
-        const imageUrl = await imageService.optimizeAndSaveImage(req.file.buffer, 'hitos');
+        const folder = req.params.folder || 'hitos';
+
+        // Llamar al servicio para optimizar y guardar en la carpeta dinámica
+        const imageUrl = await imageService.optimizeAndSaveImage(req.file.buffer, folder);
 
         res.status(200).json({
             success: true,
@@ -21,7 +23,7 @@ const uploadHitoImage = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error en uploadHitoImage:', error);
+        console.error(`Error en uploadImage (${req.params.folder}):`, error);
         res.status(500).json({
             success: false,
             message: 'Error interno al procesar la imagen',
@@ -30,7 +32,7 @@ const uploadHitoImage = async (req, res) => {
     }
 };
 
-const deleteHitoImage = async (req, res) => {
+const deleteImage = async (req, res) => {
     try {
         const { url } = req.body;
         
@@ -55,7 +57,7 @@ const deleteHitoImage = async (req, res) => {
             });
         }
     } catch (error) {
-        console.error('Error en deleteHitoImage:', error);
+        console.error('Error en deleteImage:', error);
         res.status(500).json({
             success: false,
             message: 'Error interno al eliminar la imagen',
@@ -65,6 +67,6 @@ const deleteHitoImage = async (req, res) => {
 };
 
 module.exports = {
-    uploadHitoImage,
-    deleteHitoImage
+    uploadImage,
+    deleteImage
 };
