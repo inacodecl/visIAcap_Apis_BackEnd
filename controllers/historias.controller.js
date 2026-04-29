@@ -68,10 +68,32 @@ const updateHistoryFull = async (req, res) => {
         const { id } = req.params;
         const userId = req.user.id;
 
+        const hitoPre = await HistoriasModel.findById(id, 'es');
+
         const success = await HistoriasModel.updateFull(id, req.body, userId);
 
         if (!success) {
             return res.status(404).json({ message: 'Hito no encontrado' });
+        }
+
+        // Limpieza de imágenes huérfanas por reemplazo
+        if (hitoPre && req.body.media) {
+            const { deleteImage } = require('../services/image.service');
+            let oldMedia = hitoPre.media;
+            if (typeof oldMedia === 'string') {
+                try { oldMedia = JSON.parse(oldMedia); } catch (e) { oldMedia = []; }
+            }
+            if (Array.isArray(oldMedia)) {
+                // Las urls actuales que vienen en la petición (que sobrevivieron)
+                const newUrls = (req.body.media || []).map(m => m.url);
+                oldMedia.forEach(m => {
+                    // Si la imagen antigua no está en la nueva lista, la borramos del servidor
+                    if (m && m.url && !newUrls.includes(m.url)) {
+                        deleteImage(m.url);
+                        console.log(`[updateHistoryFull] Imagen antigua eliminada por reemplazo: ${m.url}`);
+                    }
+                });
+            }
         }
 
         const hitoInfo = req.body.anio || req.body.titulo || id;
@@ -92,14 +114,32 @@ const updateHistoryPartial = async (req, res) => {
         const { id } = req.params;
         const userId = req.user.id;
 
-        // Obtener info antes de editar para el log si no viene en el body
+        const hitoPre = await HistoriasModel.findById(id, 'es');
+        
         let hitoInfo = req.body.anio || req.body.titulo;
         if (!hitoInfo) {
-            const hitoPre = await HistoriasModel.findById(id, 'es');
             hitoInfo = hitoPre ? (hitoPre.anio || hitoPre.titulo) : id;
         }
 
         const success = await HistoriasModel.patch(id, req.body, userId);
+
+        // Limpieza de imágenes huérfanas por reemplazo parcial
+        if (success && req.body.media !== undefined && hitoPre) {
+            const { deleteImage } = require('../services/image.service');
+            let oldMedia = hitoPre.media;
+            if (typeof oldMedia === 'string') {
+                try { oldMedia = JSON.parse(oldMedia); } catch (e) { oldMedia = []; }
+            }
+            if (Array.isArray(oldMedia)) {
+                const newUrls = (req.body.media || []).map(m => m.url);
+                oldMedia.forEach(m => {
+                    if (m && m.url && !newUrls.includes(m.url)) {
+                        deleteImage(m.url);
+                        console.log(`[updateHistoryPartial] Imagen antigua eliminada por reemplazo: ${m.url}`);
+                    }
+                });
+            }
+        }
 
         registrar(userId, 'editar', 'historias', parseInt(id), `Editó parcialmente el hito: ${hitoInfo}`);
         res.json({ message: 'Hito actualizado parcialmente' });
@@ -126,6 +166,23 @@ const deleteHistory = async (req, res) => {
 
         if (!success) {
             return res.status(404).json({ message: 'Hito no encontrado' });
+        }
+
+        // Eliminar las imágenes huérfanas del servidor
+        if (hitoPre && hitoPre.media) {
+            const { deleteImage } = require('../services/image.service');
+            let mediaArray = hitoPre.media;
+            if (typeof mediaArray === 'string') {
+                try { mediaArray = JSON.parse(mediaArray); } catch (e) { mediaArray = []; }
+            }
+            if (Array.isArray(mediaArray)) {
+                mediaArray.forEach(m => {
+                    if (m && m.url) {
+                        deleteImage(m.url);
+                        console.log(`[deleteHistory] Imagen huérfana eliminada del servidor: ${m.url}`);
+                    }
+                });
+            }
         }
 
         registrar(userId, 'eliminar', 'historias', parseInt(id), `Eliminó el hito histórico: ${hitoInfo}`);

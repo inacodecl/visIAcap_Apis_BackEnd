@@ -61,10 +61,22 @@ exports.updateEntrevista = async (req, res) => {
     const { id } = req.params;
     try {
         const userId = req.user ? req.user.id : null;
+        
+        // Obtener la entrevista antes de actualizar para comparar la imagen
+        const entrevistaPre = await EntrevistasModel.findById(id);
+
         const success = await EntrevistasModel.update(id, req.body, userId);
         if (!success) {
             return res.status(404).json({ message: 'Entrevista no encontrada' });
         }
+
+        // Si se actualizó correctamente y la URL de la imagen cambió, borrar la anterior
+        if (entrevistaPre && entrevistaPre.url_imagen && req.body.url_imagen && entrevistaPre.url_imagen !== req.body.url_imagen) {
+            const { deleteImage } = require('../services/image.service');
+            deleteImage(entrevistaPre.url_imagen);
+            console.log(`[updateEntrevista] Imagen antigua eliminada por reemplazo: ${entrevistaPre.url_imagen}`);
+        }
+
         const entrevistaInfo = req.body.titulo || req.body.entrevistado || id;
         registrar(userId, 'editar', 'entrevistas', parseInt(id), `Editó la entrevista: "${entrevistaInfo}"`);
         res.json({ message: 'Entrevista actualizada correctamente' });
@@ -81,21 +93,25 @@ exports.patchEntrevista = async (req, res) => {
     const { id } = req.params;
     try {
         const userId = req.user ? req.user.id : null;
-        // Verificación básica de que hay fields válidos delega en el modelo o se valida aquí si es crítica la respuesta 400
+        
+        const entrevistaPre = await EntrevistasModel.findById(id);
+
         const success = await EntrevistasModel.patch(id, req.body, userId);
 
-        // Si el modelo devuelve false podría ser porque no encontró el ID o no hubo updates.
-        // Asumimos 404 si es un error de ID.
         if (!success) {
-            // Check si es porque no enviamos campos (eso ya debería estar validado, o el modelo retorna false si updates es vacio)
-            // Aquí simplificamos para cumplir contrato.
             return res.status(404).json({ message: 'Entrevista no encontrada o sin cambios válidos' });
         }
-        // Obtener info previa para el log si no viene en el body
+
+        // Si se envió un url_imagen nuevo en el PATCH y es distinto al anterior
+        if (req.body.url_imagen !== undefined && entrevistaPre && entrevistaPre.url_imagen && entrevistaPre.url_imagen !== req.body.url_imagen) {
+            const { deleteImage } = require('../services/image.service');
+            deleteImage(entrevistaPre.url_imagen);
+            console.log(`[patchEntrevista] Imagen antigua eliminada por reemplazo: ${entrevistaPre.url_imagen}`);
+        }
+
         let entrevistaInfo = req.body.titulo || req.body.entrevistado;
         if (!entrevistaInfo) {
-            const entPre = await EntrevistasModel.findById(id);
-            entrevistaInfo = entPre ? (entPre.titulo || entPre.entrevistado) : id;
+            entrevistaInfo = entrevistaPre ? (entrevistaPre.titulo || entrevistaPre.entrevistado) : id;
         }
 
         registrar(userId, 'editar', 'entrevistas', parseInt(id), `Editó parcialmente la entrevista: "${entrevistaInfo}"`);
@@ -112,7 +128,7 @@ exports.patchEntrevista = async (req, res) => {
 exports.deleteEntrevista = async (req, res) => {
     const { id } = req.params;
     try {
-        // Obtener info antes de eliminar para el log
+        // Obtener info antes de eliminar para el log y para borrar la imagen
         const entrevistaPre = await EntrevistasModel.findById(id);
         const entrevistaInfo = entrevistaPre ? (entrevistaPre.titulo || entrevistaPre.entrevistado) : id;
 
@@ -120,6 +136,14 @@ exports.deleteEntrevista = async (req, res) => {
         if (!success) {
             return res.status(404).json({ message: 'Entrevista no encontrada' });
         }
+
+        // Eliminar imagen huérfana del servidor
+        if (entrevistaPre && entrevistaPre.url_imagen) {
+            const { deleteImage } = require('../services/image.service');
+            deleteImage(entrevistaPre.url_imagen);
+            console.log(`[deleteEntrevista] Imagen de portada eliminada del servidor: ${entrevistaPre.url_imagen}`);
+        }
+
         registrar(req.user?.id, 'eliminar', 'entrevistas', parseInt(id), `Eliminó la entrevista: "${entrevistaInfo}"`);
         res.json({ message: 'Entrevista eliminada correctamente' });
     } catch (error) {
