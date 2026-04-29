@@ -30,6 +30,31 @@ const optimizeAndSaveImage = async (fileBuffer, folder = 'hitos') => {
     return `/uploads/${folder}/${filename}`;
 };
 
+const deleteImage = (fileUrl) => {
+    try {
+        // Extraemos solo el nombre del archivo y la carpeta del string '/uploads/hitos/archivo.webp'
+        const parts = fileUrl.split('/');
+        if (parts.length >= 3) {
+            const folder = parts[parts.length - 2];
+            const filename = parts[parts.length - 1];
+            
+            // Construimos la ruta absoluta al archivo
+            const filepath = path.join(__dirname, '..', 'public', 'uploads', folder, filename);
+            
+            // Si el archivo existe, lo eliminamos
+            if (fs.existsSync(filepath)) {
+                fs.unlinkSync(filepath);
+                return true;
+            }
+        }
+        return false;
+    } catch (error) {
+        console.error('Error eliminando imagen:', error);
+        return false;
+    }
+};
+
 module.exports = {
-    optimizeAndSaveImage
+    optimizeAndSaveImage,
+    deleteImage
 };
