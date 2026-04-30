@@ -5,6 +5,7 @@
 
 const ProyectosModel = require('../models/proyectos.model');
 const { registrar } = require('../services/activityLog.service');
+const { deleteImageFile } = require('../services/image.service');
 
 const ProyectosController = {
 
@@ -110,8 +111,9 @@ const ProyectosController = {
 
             // Obtener info previa si no viene el título en el body (para el log)
             let proyectoInfo = data.titulo;
+            const proyectoPre = await ProyectosModel.findById(id, 'es');
+            
             if (!proyectoInfo) {
-                const proyectoPre = await ProyectosModel.findById(id, 'es');
                 proyectoInfo = proyectoPre ? proyectoPre.titulo : id;
             }
 
@@ -119,6 +121,28 @@ const ProyectosController = {
 
             if (!success) {
                 return res.status(404).json({ message: 'Proyecto no encontrado para actualizar.' });
+            }
+
+            // Si se actualizó correctamente, limpiar imágenes antiguas que ya no se usan
+            if (proyectoPre) {
+                // 1. Verificar portada
+                if (proyectoPre.image_cover_url && proyectoPre.image_cover_url !== data.image_cover_url) {
+                    await deleteImageFile(proyectoPre.image_cover_url, 'proyectos');
+                }
+
+                // 2. Verificar galería
+                const oldImages = proyectoPre.images || [];
+                const newImages = data.images || [];
+                
+                // Extraer URLs
+                const newImageUrls = newImages.map(img => img.url);
+
+                // Encontrar imágenes que estaban antes pero ya no están
+                for (const oldImg of oldImages) {
+                    if (!newImageUrls.includes(oldImg.url)) {
+                        await deleteImageFile(oldImg.url, 'proyectos');
+                    }
+                }
             }
 
             registrar(userId, 'editar', 'proyectos', parseInt(id), `Editó el proyecto: "${proyectoInfo}"`);
@@ -139,7 +163,7 @@ const ProyectosController = {
             const { id } = req.params;
             const userId = req.user?.id;
 
-            // Obtener info antes de eliminar para el log
+            // Obtener info antes de eliminar para el log y para limpiar imágenes
             const proyectoPre = await ProyectosModel.findById(id, 'es');
             const proyectoInfo = proyectoPre ? proyectoPre.titulo : id;
 
@@ -147,6 +171,21 @@ const ProyectosController = {
 
             if (!success) {
                 return res.status(404).json({ message: 'Proyecto no encontrado para eliminar.' });
+            }
+
+            // Limpieza de imágenes si se eliminó con éxito
+            if (proyectoPre) {
+                // 1. Eliminar portada
+                if (proyectoPre.image_cover_url) {
+                    await deleteImageFile(proyectoPre.image_cover_url, 'proyectos');
+                }
+                
+                // 2. Eliminar galería
+                if (proyectoPre.images && proyectoPre.images.length > 0) {
+                    for (const img of proyectoPre.images) {
+                        await deleteImageFile(img.url, 'proyectos');
+                    }
+                }
             }
 
             registrar(userId, 'eliminar', 'proyectos', parseInt(id), `Eliminó el proyecto: "${proyectoInfo}"`);
