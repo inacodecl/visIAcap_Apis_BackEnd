@@ -100,7 +100,8 @@ const HistoriasModel = {
                 anio, fecha, location, visible, order_index, categoria_id, media_url,
                 titulo, descripcion, audio_url, locale = 'es',
                 media = [], // Array de { url, tipo, alt }
-                tags = []   // Array de IDs [1, 2]
+                tags = [],   // Array de IDs [1, 2]
+                addToGaleria = false // Indicador para copiar a tabla galeria
             } = data;
 
             // 1. Insertar en historia
@@ -146,6 +147,22 @@ const HistoriasModel = {
                 this._runAutoTranslation(historiaId, { titulo, descripcion }, ['en', 'ht']);
             }
 
+            // 6. Agregar a la Galeria si se requiere
+            if (addToGaleria && media && media.length > 0) {
+                for (const m of media) {
+                    if (m.tipo === 'image' || !m.tipo) {
+                        try {
+                            await db.query(
+                                'INSERT INTO galeria (url, anio, visible, order_index) VALUES (?, ?, ?, ?)',
+                                [m.url, anio, 1, 0]
+                            );
+                        } catch(err) {
+                            console.error('[HistoriasModel] Fallo al añadir a galeria:', err);
+                        }
+                    }
+                }
+            }
+
             return historiaId;
 
         } catch (error) {
@@ -189,7 +206,7 @@ const HistoriasModel = {
             const media_url = data.media_url !== undefined ? data.media_url : current.media_url;
 
             // Extraer traducciones y relaciones
-            let { titulo, descripcion, audio_url, media = [], tags = [] } = data;
+            let { titulo, descripcion, audio_url, media = [], tags = [], addToGaleria = false } = data;
 
             // 1. Actualizar historia (ya fusionado)
             const [result] = await connection.query(
@@ -244,6 +261,23 @@ const HistoriasModel = {
             // 5. Auto-Traducción Inteligente en Update
             if (locale === 'es') {
                 this._runAutoTranslation(id, { titulo, descripcion }, ['en', 'ht']);
+            }
+
+            // 6. Agregar a la Galeria si se requiere (en updateFull)
+            if (addToGaleria && media && media.length > 0) {
+                for (const m of media) {
+                    if (m.tipo === 'image' || !m.tipo) {
+                        try {
+                            // Se podría comprobar si existe para no duplicar, pero insertaremos directo.
+                            await db.query(
+                                'INSERT INTO galeria (url, anio, visible, order_index) VALUES (?, ?, ?, ?)',
+                                [m.url, anio, 1, 0]
+                            );
+                        } catch(err) {
+                            console.error('[HistoriasModel] Fallo al añadir a galeria en update:', err);
+                        }
+                    }
+                }
             }
 
             return true;
