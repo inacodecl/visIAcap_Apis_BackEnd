@@ -1,4 +1,5 @@
 const GaleriaModel = require('../models/galeria.model');
+const imageService = require('../services/image.service');
 
 /**
  * Obtener todas las imágenes de la galería
@@ -92,15 +93,30 @@ const updateImagen = async (req, res) => {
 const deleteImagen = async (req, res) => {
     try {
         const { id } = req.params;
+
+        // 1. Buscar la imagen primero para obtener su URL
+        const imagen = await GaleriaModel.findById(id);
+        
+        if (!imagen) {
+            return res.status(404).json({ success: false, message: 'Imagen no encontrada en la BD' });
+        }
+
+        // 2. Eliminar de la BD
         const deleted = await GaleriaModel.delete(id);
 
         if (!deleted) {
-            return res.status(404).json({ success: false, message: 'Imagen no encontrada' });
+            return res.status(404).json({ success: false, message: 'No se pudo eliminar de la BD' });
+        }
+
+        // 3. Eliminar el archivo físico del servidor SOLAMENTE si pertenece a la carpeta exclusiva de galería
+        // Esto protege las imágenes de "/hitos/" compartidas
+        if (imagen.url && imagen.url.includes('/galeria/')) {
+            imageService.deleteImage(imagen.url);
         }
 
         res.status(200).json({
             success: true,
-            message: 'Imagen eliminada exitosamente'
+            message: 'Imagen eliminada exitosamente de la BD' + (imagen.url && imagen.url.includes('/galeria/') ? ' y del servidor' : '')
         });
     } catch (error) {
         console.error('Error al eliminar imagen:', error);
