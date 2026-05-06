@@ -19,13 +19,24 @@ const TranslationService = {
             // Nota: El código para Creole Haitiano es 'ht', Inglés es 'en'
             const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=es|${targetLang}&de=admin@inacapsmart.cl`;
             
-            const response = await fetch(url);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
+            const data = await new Promise((resolve, reject) => {
+                const https = require('https');
+                https.get(url, (res) => {
+                    let body = '';
+                    res.on('data', chunk => body += chunk);
+                    res.on('end', () => {
+                        if (res.statusCode !== 200) {
+                            reject(new Error(`HTTP error! status: ${res.statusCode}`));
+                            return;
+                        }
+                        try {
+                            resolve(JSON.parse(body));
+                        } catch (e) {
+                            reject(new Error('Invalid JSON response'));
+                        }
+                    });
+                }).on('error', reject);
+            });
             
             if (data.responseStatus !== 200) {
                 throw new Error(data.responseDetails || 'MyMemory API Error');
