@@ -13,15 +13,27 @@ const TranslationService = {
         const maxAttempts = 3;
         
         try {
-            // Pequeño delay inicial para evitar ráfagas
             await new Promise(resolve => setTimeout(resolve, attempt * 500));
 
-            // Nota: El código para Creole Haitiano es 'ht', Inglés es 'en'
-            const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=es|${targetLang}&de=admin@inacapsmart.cl`;
-            
             const data = await new Promise((resolve, reject) => {
                 const https = require('https');
-                https.get(url, (res) => {
+                const postData = new URLSearchParams({
+                    q: text,
+                    langpair: `es|${targetLang}`,
+                    de: 'admin@inacapsmart.cl'
+                }).toString();
+
+                const options = {
+                    hostname: 'api.mymemory.translated.net',
+                    path: '/get',
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Content-Length': Buffer.byteLength(postData)
+                    }
+                };
+
+                const req = https.request(options, (res) => {
                     let body = '';
                     res.on('data', chunk => body += chunk);
                     res.on('end', () => {
@@ -35,7 +47,11 @@ const TranslationService = {
                             reject(new Error('Invalid JSON response'));
                         }
                     });
-                }).on('error', reject);
+                });
+
+                req.on('error', reject);
+                req.write(postData);
+                req.end();
             });
             
             if (data.responseStatus !== 200) {
