@@ -22,9 +22,11 @@ const esteMesRoutes = require('./routes/este-mes.routes');
 const actividadRoutes = require('./routes/actividad.routes');
 const uploadRoutes = require('./routes/upload.routes');
 const galeriaRoutes = require('./routes/galeria.routes');
+const feedbacksRoutes = require('./routes/feedbacks.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
 
 // Middlewares
 app.use(helmet()); // Seguridad HTTP
@@ -59,6 +61,7 @@ app.use('/api/futuro/noticias', noticiasFuturoRoutes);
 app.use('/api/futuro/este-mes', esteMesRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/galeria', galeriaRoutes);
+app.use('/api/feedbacks', feedbacksRoutes);
 
 // Servir archivos estáticos (imágenes subidas) con caché de 30 días
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads'), {
