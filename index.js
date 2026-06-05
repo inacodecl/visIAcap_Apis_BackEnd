@@ -23,7 +23,7 @@ const actividadRoutes = require('./routes/actividad.routes');
 const uploadRoutes = require('./routes/upload.routes');
 const galeriaRoutes = require('./routes/galeria.routes');
 const feedbacksRoutes = require('./routes/feedbacks.routes');
-const analyticsRoutes = require('./routes/analyticsRoutes');
+const analyticsRoutes = require('./routes/analytics.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
