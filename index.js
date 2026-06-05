@@ -23,6 +23,7 @@ const actividadRoutes = require('./routes/actividad.routes');
 const uploadRoutes = require('./routes/upload.routes');
 const galeriaRoutes = require('./routes/galeria.routes');
 const feedbacksRoutes = require('./routes/feedbacks.routes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -62,6 +63,7 @@ app.use('/api/futuro/este-mes', esteMesRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/galeria', galeriaRoutes);
 app.use('/api/feedbacks', feedbacksRoutes);
+app.use('/api/admin', analyticsRoutes);
 
 // Servir archivos estáticos (imágenes subidas) con caché de 30 días
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads'), {
