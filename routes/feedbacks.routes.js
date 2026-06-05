@@ -10,6 +10,6 @@ router.post('/', feedbacksController.createFeedback);
 router.get('/', verifyToken, verifyRole(['admin', 'super_admin']), feedbacksController.getFeedbacks);
 
 // DELETE /api/feedbacks/:id — Eliminar una sugerencia (Privado, Solo SuperAdmin)
-router.delete('/:id', verifyToken, verifyRole(['super_admin']), feedbacksController.deleteFeedback);
+router.delete('/:id', verifyToken, verifyRole(['admin','super_admin']), feedbacksController.deleteFeedback);
 
 module.exports = router;
