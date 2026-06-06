@@ -72,15 +72,29 @@ const NoticiasFuturoController = {
         try {
             const { id } = req.params;
             const userId = req.user.id;
+
+            // Obtener la noticia antes de actualizar para limpiar la imagen vieja
+            const noticiaPre = await NoticiasFuturoModel.findById(id, 'es');
+
             const success = await NoticiasFuturoModel.updateFull(id, req.body, userId);
             if (!success) {
                 return res.status(404).json({ ok: false, error: { code: 'NOT_FOUND', message: 'Noticia no encontrada.', userMessage: 'Esta noticia no existe.' } });
             }
+
+            // Limpieza de imagen huérfana por reemplazo en el servidor
+            const newImageUrl = req.body.imagen_url || req.body.imagen;
+            if (noticiaPre && noticiaPre.imagen && newImageUrl && noticiaPre.imagen !== newImageUrl) {
+                if (noticiaPre.imagen.startsWith('/uploads/')) {
+                    const { deleteImage } = require('../services/image.service');
+                    deleteImage(noticiaPre.imagen);
+                    console.log(`[noticias-futuro.controller] Imagen antigua eliminada por reemplazo: ${noticiaPre.imagen}`);
+                }
+            }
+
             // Obtener info previa para el log si no viene el título en el body
             let noticiaInfo = req.body.titulo;
             if (!noticiaInfo) {
-                const notPre = await NoticiasFuturoModel.findById(id, 'es');
-                noticiaInfo = notPre ? notPre.titulo : id;
+                noticiaInfo = noticiaPre ? noticiaPre.titulo : id;
             }
 
             registrar(userId, 'editar', 'noticias_futuro', parseInt(id), `Editó noticia: "${noticiaInfo}"`);
@@ -95,7 +109,7 @@ const NoticiasFuturoController = {
     async remove(req, res) {
         try {
             const { id } = req.params;
-            // Obtener info antes de eliminar para el log
+            // Obtener info antes de eliminar para el log y para borrar el archivo físico
             const noticiaPre = await NoticiasFuturoModel.findById(id, 'es');
             const noticiaInfo = noticiaPre ? noticiaPre.titulo : id;
 
@@ -103,6 +117,14 @@ const NoticiasFuturoController = {
             if (!success) {
                 return res.status(404).json({ ok: false, error: { code: 'NOT_FOUND', message: 'Noticia no encontrada.', userMessage: 'Esta noticia no existe.' } });
             }
+
+            // Eliminar imagen del servidor al borrar la noticia
+            if (noticiaPre && noticiaPre.imagen && noticiaPre.imagen.startsWith('/uploads/')) {
+                const { deleteImage } = require('../services/image.service');
+                deleteImage(noticiaPre.imagen);
+                console.log(`[noticias-futuro.controller] Imagen eliminada al borrar noticia: ${noticiaPre.imagen}`);
+            }
+
             registrar(req.user?.id, 'eliminar', 'noticias_futuro', parseInt(id), `Eliminó noticia: "${noticiaInfo}"`);
             return res.json({ ok: true, message: 'Noticia eliminada correctamente.' });
         } catch (error) {
