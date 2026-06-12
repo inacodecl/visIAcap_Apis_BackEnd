@@ -6,8 +6,6 @@ const helmet = require('helmet');
 const path = require('path');
 const db = require('./config/db');
 
-app.set('trust proxy', 1);
-
 // Importar rutas (Nomenclatura Plural Estandarizada)
 const usuariosRoutes = require('./routes/usuarios.routes');
 const entrevistasRoutes = require('./routes/entrevistas.routes');

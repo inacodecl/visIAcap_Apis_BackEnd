@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 const { BetaAnalyticsDataClient } = require('@google-analytics/data');
 
 // Variables para caché en memoria
@@ -14,15 +15,21 @@ let realtimeCache = {
 };
 const REALTIME_TTL = 1 * 60 * 1000; // 1 minuto (en milisegundos)
 
-// Inicialización segura de BetaAnalyticsDataClient
+// Inicialización segura de BetaAnalyticsDataClient y extracción del email de la cuenta de servicio
 let analyticsDataClient = null;
+let serviceAccountEmail = null;
 try {
     const credentialsPath = path.join(__dirname, '../google-credentials.json');
     analyticsDataClient = new BetaAnalyticsDataClient({
         keyFilename: credentialsPath
     });
+    
+    if (fs.existsSync(credentialsPath)) {
+        const credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
+        serviceAccountEmail = credentials.client_email;
+    }
 } catch (err) {
-    console.error('[AnalyticsController] Error al inicializar BetaAnalyticsDataClient:', err);
+    console.error('[AnalyticsController] Error al inicializar BetaAnalyticsDataClient o extraer email:', err);
 }
 
 /**
@@ -167,12 +174,31 @@ const getMetricas = async (req, res) => {
 
     } catch (error) {
         console.error('[AnalyticsController] Error al obtener métricas consolidadas:', error);
+        
+        const isPermissionError = 
+            error.code === 7 || 
+            error.status === 403 || 
+            (error.message && (
+                error.message.toLowerCase().includes('permission') || 
+                error.message.toLowerCase().includes('denied') || 
+                error.message.toLowerCase().includes('not have')
+            ));
+
+        let code = 'GA_REPORT_ERROR';
+        let userMessage = 'No se pudieron obtener las métricas de tráfico en este momento.';
+
+        if (isPermissionError) {
+            code = 'GA_PERMISSION_DENIED';
+            userMessage = 'Error de permisos en Google Analytics: La cuenta de servicio del backend no tiene acceso a la propiedad de GA4 configurada.';
+        }
+
         return res.status(500).json({
             ok: false,
             error: {
-                code: 'GA_REPORT_ERROR',
+                code,
                 message: error.message,
-                userMessage: 'No se pudieron obtener las métricas de tráfico en este momento.'
+                userMessage,
+                serviceAccountEmail: serviceAccountEmail
             }
         });
     }
@@ -266,12 +292,31 @@ const getRealtimeMetricas = async (req, res) => {
 
     } catch (error) {
         console.error('[AnalyticsController] Error al obtener métricas de tiempo real:', error);
+
+        const isPermissionError = 
+            error.code === 7 || 
+            error.status === 403 || 
+            (error.message && (
+                error.message.toLowerCase().includes('permission') || 
+                error.message.toLowerCase().includes('denied') || 
+                error.message.toLowerCase().includes('not have')
+            ));
+
+        let code = 'GA_REALTIME_REPORT_ERROR';
+        let userMessage = 'No se pudieron obtener los datos de tráfico en tiempo real.';
+
+        if (isPermissionError) {
+            code = 'GA_PERMISSION_DENIED';
+            userMessage = 'Error de permisos en Google Analytics: La cuenta de servicio del backend no tiene acceso a la propiedad de GA4 configurada.';
+        }
+
         return res.status(500).json({
             ok: false,
             error: {
-                code: 'GA_REALTIME_REPORT_ERROR',
+                code,
                 message: error.message,
-                userMessage: 'No se pudieron obtener los datos de tráfico en tiempo real.'
+                userMessage,
+                serviceAccountEmail: serviceAccountEmail
             }
         });
     }
