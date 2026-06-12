@@ -1,94 +1,172 @@
-const { google } = require('googleapis');
+const path = require('path');
 const { BetaAnalyticsDataClient } = require('@google-analytics/data');
 
+// Variables para caché en memoria
+let historicoCache = {
+    data: null,
+    timestamp: 0
+};
+const HISTORICO_TTL = 2 * 60 * 60 * 1000; // 2 horas (en milisegundos)
+
+let realtimeCache = {
+    data: null,
+    timestamp: 0
+};
+const REALTIME_TTL = 1 * 60 * 1000; // 1 minuto (en milisegundos)
+
+// Inicialización segura de BetaAnalyticsDataClient
+let analyticsDataClient = null;
+try {
+    const credentialsPath = path.join(__dirname, '../google-credentials.json');
+    analyticsDataClient = new BetaAnalyticsDataClient({
+        keyFilename: credentialsPath
+    });
+} catch (err) {
+    console.error('[AnalyticsController] Error al inicializar BetaAnalyticsDataClient:', err);
+}
+
 /**
- * Obtiene las métricas de tráfico de Google Analytics 4 (GA4)
- * de los últimos 7 días, ordenadas por vistas totales.
+ * Obtiene métricas agregadas e históricas de GA4 (últimos 7 días)
+ * utilizando caché y batchRunReports.
  * 
  * GET /api/admin/metricas
  */
 const getMetricas = async (req, res) => {
     try {
-        const clientId = process.env.GA_CLIENT_ID;
-        const clientSecret = process.env.GA_CLIENT_SECRET;
-        const refreshToken = process.env.GA_REFRESH_TOKEN;
         const propertyId = process.env.GA_PROPERTY_ID;
 
-        // Validación de que todas las credenciales requeridas existan
-        if (!clientId || !clientSecret || !refreshToken || !propertyId) {
-            console.warn('[AnalyticsController] Faltan variables de entorno obligatorias para GA4');
+        if (!propertyId) {
             return res.status(500).json({
                 ok: false,
                 error: {
                     code: 'GA_CONFIG_ERROR',
-                    message: 'Missing required Google Analytics environment variables in .env',
-                    userMessage: 'La configuración de Google Analytics no está completa en el servidor.'
+                    message: 'Falta la variable de entorno GA_PROPERTY_ID en el archivo .env',
+                    userMessage: 'La configuración de la propiedad de Google Analytics no está completa en el servidor.'
                 }
             });
         }
 
-        // Configurar cliente de autenticación de OAuth2
-        const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
-        oauth2Client.setCredentials({
-            refresh_token: refreshToken
-        });
+        if (!analyticsDataClient) {
+            return res.status(500).json({
+                ok: false,
+                error: {
+                    code: 'GA_CLIENT_ERROR',
+                    message: 'No se pudo inicializar el cliente de Google Analytics con las credenciales provistas.',
+                    userMessage: 'El archivo de credenciales de Google Analytics no está disponible o es inválido.'
+                }
+            });
+        }
 
-        // Inicializar BetaAnalyticsDataClient pasándole el cliente OAuth2 como authClient
-        const analyticsDataClient = new BetaAnalyticsDataClient({
-            authClient: oauth2Client
-        });
+        // 1. Validar sistema de caché para datos históricos (2 horas de TTL)
+        const ahora = Date.now();
+        if (historicoCache.data && (ahora - historicoCache.timestamp < HISTORICO_TTL)) {
+            return res.status(200).json({
+                ok: true,
+                source: 'cache',
+                data: historicoCache.data
+            });
+        }
 
-        // Consultar el reporte a Google Analytics 4
-        const [response] = await analyticsDataClient.runReport({
+        // 2. Si el caché expiró o está vacío, consultar a Google Analytics usando batchRunReports (1 sola petición a la API)
+        const [response] = await analyticsDataClient.batchRunReports({
             property: `properties/${propertyId}`,
-            dateRanges: [
+            requests: [
+                // Reporte 1: Tráfico Diario (Evolución)
                 {
-                    startDate: '7daysAgo',
-                    endDate: 'today'
-                }
-            ],
-            dimensions: [
-                {
-                    name: 'pagePath'
-                }
-            ],
-            metrics: [
-                {
-                    name: 'activeUsers'
+                    dateRanges: [{ startDate: '7daysAgo', endDate: 'today' }],
+                    dimensions: [{ name: 'date' }],
+                    metrics: [{ name: 'activeUsers' }, { name: 'sessions' }]
                 },
+                // Reporte 2: Dispositivos Usados
                 {
-                    name: 'screenPageViews'
+                    dateRanges: [{ startDate: '7daysAgo', endDate: 'today' }],
+                    dimensions: [{ name: 'deviceCategory' }],
+                    metrics: [{ name: 'activeUsers' }]
+                },
+                // Reporte 3: Canales de Adquisición / Origen de Visitas
+                {
+                    dateRanges: [{ startDate: '7daysAgo', endDate: 'today' }],
+                    dimensions: [{ name: 'sessionSourceMedium' }],
+                    metrics: [{ name: 'sessions' }]
+                },
+                // Reporte 4: Tabla de Clasificación de Páginas más Leídas
+                {
+                    dateRanges: [{ startDate: '7daysAgo', endDate: 'today' }],
+                    dimensions: [{ name: 'pagePath' }],
+                    metrics: [{ name: 'screenPageViews' }, { name: 'activeUsers' }]
                 }
             ]
         });
 
-        const metricas = [];
+        // 3. Procesar y estructurar las respuestas de los reportes por lotes
+        const reports = response.reports || [];
+        
+        // Reporte 1: Tráfico Diario
+        const traficoDiario = [];
+        if (reports[0] && reports[0].rows) {
+            reports[0].rows.forEach(row => {
+                const fechaRaw = row.dimensionValues[0].value; // YYYYMMDD
+                const fecha = `${fechaRaw.substring(0, 4)}-${fechaRaw.substring(4, 6)}-${fechaRaw.substring(6, 8)}`;
+                const usuarios_activos = parseInt(row.metricValues[0].value, 10) || 0;
+                const sesiones = parseInt(row.metricValues[1].value, 10) || 0;
+                traficoDiario.push({ fecha, usuarios_activos, sesiones });
+            });
+        }
+        // Ordenar cronológicamente para los gráficos
+        traficoDiario.sort((a, b) => a.fecha.localeCompare(b.fecha));
 
-        // Procesar y mapear las filas del reporte
-        if (response && response.rows) {
-            response.rows.forEach(row => {
-                const ruta = (row.dimensionValues && row.dimensionValues[0]) ? row.dimensionValues[0].value : '';
-                const usuarios_unicos = (row.metricValues && row.metricValues[0]) ? parseInt(row.metricValues[0].value, 10) : 0;
-                const vistas_totales = (row.metricValues && row.metricValues[1]) ? parseInt(row.metricValues[1].value, 10) : 0;
-
-                metricas.push({
-                    ruta,
-                    usuarios_unicos,
-                    vistas_totales
-                });
+        // Reporte 2: Dispositivos
+        const dispositivos = [];
+        if (reports[1] && reports[1].rows) {
+            reports[1].rows.forEach(row => {
+                const categoria = row.dimensionValues[0].value || 'Desconocido';
+                const usuarios_activos = parseInt(row.metricValues[0].value, 10) || 0;
+                dispositivos.push({ categoria, usuarios_activos });
             });
         }
 
-        // Ordenar de mayor a menor según vistas_totales
-        metricas.sort((a, b) => b.vistas_totales - a.vistas_totales);
+        // Reporte 3: Canales de Adquisición
+        const canales = [];
+        if (reports[2] && reports[2].rows) {
+            reports[2].rows.forEach(row => {
+                const origen_medio = row.dimensionValues[0].value || 'direct / (none)';
+                const sesiones = parseInt(row.metricValues[0].value, 10) || 0;
+                canales.push({ origen_medio, sesiones });
+            });
+        }
+
+        // Reporte 4: Top Páginas
+        const topPaginas = [];
+        if (reports[3] && reports[3].rows) {
+            reports[3].rows.forEach(row => {
+                const ruta = row.dimensionValues[0].value || '/';
+                const vistas = parseInt(row.metricValues[0].value, 10) || 0;
+                const usuarios_activos = parseInt(row.metricValues[1].value, 10) || 0;
+                topPaginas.push({ ruta, vistas, usuarios_activos });
+            });
+        }
+        // Ordenar por vistas (descendente) y limitar a top 10
+        topPaginas.sort((a, b) => b.vistas - a.vistas);
+
+        const dataProcesada = {
+            traficoDiario,
+            dispositivos,
+            canales,
+            topPaginas: topPaginas.slice(0, 10)
+        };
+
+        // 4. Guardar datos procesados en la caché
+        historicoCache.data = dataProcesada;
+        historicoCache.timestamp = ahora;
 
         return res.status(200).json({
             ok: true,
-            data: metricas
+            source: 'api',
+            data: dataProcesada
         });
 
     } catch (error) {
-        console.error('[AnalyticsController] Error al obtener reportes de GA4:', error);
+        console.error('[AnalyticsController] Error al obtener métricas consolidadas:', error);
         return res.status(500).json({
             ok: false,
             error: {
@@ -101,80 +179,105 @@ const getMetricas = async (req, res) => {
 };
 
 /**
- * Envía un evento de page_view al Measurement Protocol de GA4
- * POST /api/admin/track
+ * Obtiene métricas en tiempo real de los últimos 30 minutos
+ * utilizando caché corto y runRealtimeReport.
+ * 
+ * GET /api/admin/metricas/tiempo-real
  */
-const trackPageView = async (req, res) => {
+const getRealtimeMetricas = async (req, res) => {
     try {
-        const { ruta, client_id } = req.body;
+        const propertyId = process.env.GA_PROPERTY_ID;
 
-        if (!ruta || !client_id) {
-            return res.status(400).json({
-                success: false,
-                message: 'Faltan campos obligatorios: ruta y client_id'
-            });
-        }
-
-        const measurementId = process.env.GA_MEASUREMENT_ID;
-        const apiSecret = process.env.GA_API_SECRET;
-
-        if (!measurementId || !apiSecret) {
-            console.warn('[AnalyticsController] Faltan variables de entorno obligatorias para trackear eventos en GA4');
-            // Devolvemos 200 de todos modos para no interferir con el frontend
-            return res.status(200).json({
-                success: true,
-                warning: 'GA4 config not complete on server'
-            });
-        }
-
-        const url = `https://www.google-analytics.com/mp/collect?measurement_id=${measurementId}&api_secret=${apiSecret}`;
-
-        const payload = {
-            client_id: client_id,
-            events: [
-                {
-                    name: 'page_view',
-                    params: {
-                        page_path: ruta
-                    }
+        if (!propertyId) {
+            return res.status(500).json({
+                ok: false,
+                error: {
+                    code: 'GA_CONFIG_ERROR',
+                    message: 'Falta la variable de entorno GA_PROPERTY_ID en el archivo .env',
+                    userMessage: 'La configuración de la propiedad de Google Analytics no está completa.'
                 }
-            ]
-        };
+            });
+        }
 
-        // Enviar evento de forma asíncrona a Google Analytics (Server-to-Server)
-        fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        })
-        .then(response => {
-            if (!response.ok) {
-                console.error(`[AnalyticsController] Error al enviar evento a GA4: ${response.status} ${response.statusText}`);
-            } else {
-                console.log(`[AnalyticsController] Evento page_view enviado a GA4 para la ruta: ${ruta}`);
-            }
-        })
-        .catch(error => {
-            console.error('[AnalyticsController] Error de red al reportar a GA4:', error);
+        if (!analyticsDataClient) {
+            return res.status(500).json({
+                ok: false,
+                error: {
+                    code: 'GA_CLIENT_ERROR',
+                    message: 'No se pudo inicializar el cliente de Google Analytics.',
+                    userMessage: 'El archivo de credenciales de Google Analytics no está disponible.'
+                }
+            });
+        }
+
+        // 1. Validar caché corto de tiempo real (1 minuto de TTL)
+        const ahora = Date.now();
+        if (realtimeCache.data && (ahora - realtimeCache.timestamp < REALTIME_TTL)) {
+            return res.status(200).json({
+                ok: true,
+                source: 'cache',
+                data: realtimeCache.data
+            });
+        }
+
+        // 2. Consultar reporte en tiempo real a GA4 (últimos 30 minutos)
+        const [realtimeResponse] = await analyticsDataClient.runRealtimeReport({
+            property: `properties/${propertyId}`,
+            metrics: [
+                { name: 'activeUsers' }
+            ],
+            dimensions: [
+                { name: 'pagePath' }
+            ]
         });
 
-        // Responder inmediatamente al cliente
+        // 3. Procesar resultados en tiempo real
+        let usuariosActivosTotal = 0;
+        const paginasActivas = [];
+
+        if (realtimeResponse && realtimeResponse.rows) {
+            realtimeResponse.rows.forEach(row => {
+                const ruta = row.dimensionValues[0].value || '/';
+                const usuarios = parseInt(row.metricValues[0].value, 10) || 0;
+                usuariosActivosTotal += usuarios;
+                paginasActivas.push({ ruta, usuarios });
+            });
+        }
+
+        // Si no hay filas pero Google reporta un total, lo usamos
+        if (usuariosActivosTotal === 0 && realtimeResponse && realtimeResponse.totals && realtimeResponse.totals[0]) {
+            usuariosActivosTotal = parseInt(realtimeResponse.totals[0].metricValues[0].value, 10) || 0;
+        }
+
+        const dataProcesadaRealtime = {
+            usuariosActivos: usuariosActivosTotal,
+            paginasActivas: paginasActivas.sort((a, b) => b.usuarios - a.usuarios).slice(0, 5)
+        };
+
+        // 4. Actualizar la caché en tiempo real
+        realtimeCache.data = dataProcesadaRealtime;
+        realtimeCache.timestamp = ahora;
+
         return res.status(200).json({
-            success: true
+            ok: true,
+            source: 'api',
+            data: dataProcesadaRealtime
         });
 
     } catch (error) {
-        console.error('[AnalyticsController] Error en trackPageView:', error);
+        console.error('[AnalyticsController] Error al obtener métricas de tiempo real:', error);
         return res.status(500).json({
-            success: false,
-            message: 'Error interno del servidor al procesar el tracking'
+            ok: false,
+            error: {
+                code: 'GA_REALTIME_REPORT_ERROR',
+                message: error.message,
+                userMessage: 'No se pudieron obtener los datos de tráfico en tiempo real.'
+            }
         });
     }
 };
 
 module.exports = {
     getMetricas,
-    trackPageView
+    getRealtimeMetricas
 };

@@ -3,15 +3,15 @@ const router = express.Router();
 const analyticsController = require('../controllers/analytics.controller');
 
 /**
- * Endpoint para obtener métricas de tráfico desde GA4
+ * Endpoint para obtener métricas de tráfico consolidadas desde GA4
  * GET /api/admin/metricas
  */
 router.get('/metricas', analyticsController.getMetricas);
 
 /**
- * Endpoint para registrar visitas (Proxy Server-Side)
- * POST /api/admin/track
+ * Endpoint para obtener métricas de tráfico en tiempo real (últimos 30 minutos)
+ * GET /api/admin/metricas/tiempo-real
  */
-router.post('/track', analyticsController.trackPageView);
+router.get('/metricas/tiempo-real', analyticsController.getRealtimeMetricas);
 
 module.exports = router;
