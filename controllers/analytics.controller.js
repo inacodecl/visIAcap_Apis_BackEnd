@@ -100,6 +100,81 @@ const getMetricas = async (req, res) => {
     }
 };
 
+/**
+ * Envía un evento de page_view al Measurement Protocol de GA4
+ * POST /api/admin/track
+ */
+const trackPageView = async (req, res) => {
+    try {
+        const { ruta, client_id } = req.body;
+
+        if (!ruta || !client_id) {
+            return res.status(400).json({
+                success: false,
+                message: 'Faltan campos obligatorios: ruta y client_id'
+            });
+        }
+
+        const measurementId = process.env.GA_MEASUREMENT_ID;
+        const apiSecret = process.env.GA_API_SECRET;
+
+        if (!measurementId || !apiSecret) {
+            console.warn('[AnalyticsController] Faltan variables de entorno obligatorias para trackear eventos en GA4');
+            // Devolvemos 200 de todos modos para no interferir con el frontend
+            return res.status(200).json({
+                success: true,
+                warning: 'GA4 config not complete on server'
+            });
+        }
+
+        const url = `https://www.google-analytics.com/mp/collect?measurement_id=${measurementId}&api_secret=${apiSecret}`;
+
+        const payload = {
+            client_id: client_id,
+            events: [
+                {
+                    name: 'page_view',
+                    params: {
+                        page_path: ruta
+                    }
+                }
+            ]
+        };
+
+        // Enviar evento de forma asíncrona a Google Analytics (Server-to-Server)
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(response => {
+            if (!response.ok) {
+                console.error(`[AnalyticsController] Error al enviar evento a GA4: ${response.status} ${response.statusText}`);
+            } else {
+                console.log(`[AnalyticsController] Evento page_view enviado a GA4 para la ruta: ${ruta}`);
+            }
+        })
+        .catch(error => {
+            console.error('[AnalyticsController] Error de red al reportar a GA4:', error);
+        });
+
+        // Responder inmediatamente al cliente
+        return res.status(200).json({
+            success: true
+        });
+
+    } catch (error) {
+        console.error('[AnalyticsController] Error en trackPageView:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error interno del servidor al procesar el tracking'
+        });
+    }
+};
+
 module.exports = {
-    getMetricas
+    getMetricas,
+    trackPageView
 };

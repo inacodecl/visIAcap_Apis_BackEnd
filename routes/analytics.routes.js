@@ -8,4 +8,10 @@ const analyticsController = require('../controllers/analytics.controller');
  */
 router.get('/metricas', analyticsController.getMetricas);
 
+/**
+ * Endpoint para registrar visitas (Proxy Server-Side)
+ * POST /api/admin/track
+ */
+router.post('/track', analyticsController.trackPageView);
+
 module.exports = router;
