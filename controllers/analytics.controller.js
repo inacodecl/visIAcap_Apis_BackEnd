@@ -342,4 +342,5 @@ const getRealtimeMetricas = async (req, res) => {
 module.exports = {
     getMetricas,
     getRealtimeMetricas
+
 };
