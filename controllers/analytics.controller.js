@@ -20,17 +20,47 @@ let analyticsDataClient = null;
 let serviceAccountEmail = null;
 try {
     const credentialsPath = path.join(__dirname, '../google-credentials.json');
-    analyticsDataClient = new BetaAnalyticsDataClient({
-        keyFilename: credentialsPath
-    });
-    
-    if (fs.existsSync(credentialsPath)) {
+
+    // Opción 1: Cargar desde la variable con el JSON stringificado
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+        const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+        analyticsDataClient = new BetaAnalyticsDataClient({
+            credentials: {
+                client_email: credentials.client_email,
+                private_key: credentials.private_key ? credentials.private_key.replace(/\\n/g, '\n') : undefined
+            },
+            projectId: credentials.project_id
+        });
+        serviceAccountEmail = credentials.client_email;
+        console.log('[AnalyticsController] Cliente inicializado exitosamente desde GOOGLE_APPLICATION_CREDENTIALS_JSON.');
+
+        // Opción 2: Cargar desde variables de entorno individuales
+    } else if (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
+        analyticsDataClient = new BetaAnalyticsDataClient({
+            credentials: {
+                client_email: process.env.GOOGLE_CLIENT_EMAIL,
+                private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n')
+            },
+            projectId: process.env.GOOGLE_PROJECT_ID
+        });
+        serviceAccountEmail = process.env.GOOGLE_CLIENT_EMAIL;
+        console.log('[AnalyticsController] Cliente inicializado exitosamente desde variables de entorno individuales.');
+
+        // Opción 3: Cargar tradicionalmente desde el archivo local google-credentials.json
+    } else if (fs.existsSync(credentialsPath)) {
+        analyticsDataClient = new BetaAnalyticsDataClient({
+            keyFilename: credentialsPath
+        });
         const credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
         serviceAccountEmail = credentials.client_email;
+        console.log('[AnalyticsController] Cliente inicializado exitosamente desde archivo google-credentials.json.');
+    } else {
+        console.warn('[AnalyticsController] No se encontraron credenciales de Google Analytics (JSON, variables individuales o archivo).');
     }
 } catch (err) {
     console.error('[AnalyticsController] Error al inicializar BetaAnalyticsDataClient o extraer email:', err);
 }
+
 
 /**
  * Obtiene métricas agregadas e históricas de GA4 (últimos 7 días)
@@ -40,19 +70,6 @@ try {
  */
 const getMetricas = async (req, res) => {
     try {
-        const propertyId = process.env.GA_PROPERTY_ID;
-
-        if (!propertyId) {
-            return res.status(500).json({
-                ok: false,
-                error: {
-                    code: 'GA_CONFIG_ERROR',
-                    message: 'Falta la variable de entorno GA_PROPERTY_ID en el archivo .env',
-                    userMessage: 'La configuración de la propiedad de Google Analytics no está completa en el servidor.'
-                }
-            });
-        }
-
         if (!analyticsDataClient) {
             return res.status(500).json({
                 ok: false,
@@ -107,7 +124,7 @@ const getMetricas = async (req, res) => {
 
         // 3. Procesar y estructurar las respuestas de los reportes por lotes
         const reports = response.reports || [];
-        
+
         // Reporte 1: Tráfico Diario
         const traficoDiario = [];
         if (reports[0] && reports[0].rows) {
@@ -174,13 +191,13 @@ const getMetricas = async (req, res) => {
 
     } catch (error) {
         console.error('[AnalyticsController] Error al obtener métricas consolidadas:', error);
-        
-        const isPermissionError = 
-            error.code === 7 || 
-            error.status === 403 || 
+
+        const isPermissionError =
+            error.code === 7 ||
+            error.status === 403 ||
             (error.message && (
-                error.message.toLowerCase().includes('permission') || 
-                error.message.toLowerCase().includes('denied') || 
+                error.message.toLowerCase().includes('permission') ||
+                error.message.toLowerCase().includes('denied') ||
                 error.message.toLowerCase().includes('not have')
             ));
 
@@ -293,12 +310,12 @@ const getRealtimeMetricas = async (req, res) => {
     } catch (error) {
         console.error('[AnalyticsController] Error al obtener métricas de tiempo real:', error);
 
-        const isPermissionError = 
-            error.code === 7 || 
-            error.status === 403 || 
+        const isPermissionError =
+            error.code === 7 ||
+            error.status === 403 ||
             (error.message && (
-                error.message.toLowerCase().includes('permission') || 
-                error.message.toLowerCase().includes('denied') || 
+                error.message.toLowerCase().includes('permission') ||
+                error.message.toLowerCase().includes('denied') ||
                 error.message.toLowerCase().includes('not have')
             ));
 
